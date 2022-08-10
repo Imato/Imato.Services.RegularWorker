@@ -1,0 +1,19 @@
+﻿using System.Text.Json;
+
+namespace Imato.Services.RegularWorker
+{
+    public class ConfigValue
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+
+        public T? GetValue<T>()
+        {
+            if (string.IsNullOrEmpty(Value))
+                return default;
+
+            return JsonSerializer.Deserialize<T>(Value, Constants.JsonOptions);
+        }
+    }
+}

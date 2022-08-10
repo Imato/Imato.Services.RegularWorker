@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Imato.Services.RegularWorker</PackageId>
+		<Title>Imato.Services.RegularWorker</Title>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<Authors>Alexey Varentsov (@imato)</Authors>
+		<Company>Imato</Company>
+		<PackageProjectUrl>https://github.com/Imato/Imato.Services.RegularWorker</PackageProjectUrl>
+		<Description>Reflection utils</Description>
+		<Summary></Summary>
+		<RepositoryUrl>https://github.com/Imato/Imato.Services.RegularWorker</RepositoryUrl>
+		<PackageTags>services workers</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
+		<Version>1.0.0</Version>
+		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
+		<PackageIcon>icon.png</PackageIcon>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<DebugType>portable</DebugType>
+		<Copyright>Alexey Varentsov</Copyright>
+		<RequireLicenseAcceptance>false</RequireLicenseAcceptance>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="icon.png" Pack="true" Visible="false" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Dapper" Version="2.0.123" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
+	</ItemGroup>
+
+</Project>
+
+
