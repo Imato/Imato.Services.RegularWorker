@@ -29,13 +29,41 @@ namespace Imato.Services.RegularWorker
             return builder;
         }
 
-        public static void StartServices(this IHost app)
+        public static void StartHostedServices(this IHost app)
         {
             var provider = app.Services.CreateScope().ServiceProvider;
             foreach (var worker in provider.GetServices<IHostedService>())
             {
                 Task.Factory.StartNew(() => worker.StartAsync(CancellationToken.None),
                         TaskCreationOptions.LongRunning);
+            }
+        }
+
+        public static void StopHostedServices(this IHost app)
+        {
+            var provider = app.Services.CreateScope().ServiceProvider;
+            foreach (var worker in provider.GetServices<IHostedService>())
+            {
+                worker.StopAsync(CancellationToken.None).Wait();
+            }
+        }
+
+        public static void StartWorkers(this IHost app)
+        {
+            var provider = app.Services.CreateScope().ServiceProvider;
+            foreach (var worker in provider.GetServices<IWorker>())
+            {
+                Task.Factory.StartNew(() => worker.StartAsync(CancellationToken.None),
+                        TaskCreationOptions.LongRunning);
+            }
+        }
+
+        public static void StopWorkers(this IHost app)
+        {
+            var provider = app.Services.CreateScope().ServiceProvider;
+            foreach (var worker in provider.GetServices<IWorker>())
+            {
+                worker.StopAsync(CancellationToken.None).Wait();
             }
         }
 

@@ -9,6 +9,8 @@ namespace Imato.Services.RegularWorker
         protected readonly ILogger Logger;
         protected readonly DbContext Db;
         private readonly IServiceProvider provider;
+        protected readonly object locker = new object();
+        protected bool started = false;
 
         public BaseWorker(IServiceProvider provider)
         {
@@ -48,19 +50,39 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task StartAsync(CancellationToken cancellationToken)
         {
-            if (Db.IsPrimaryServer())
+            lock (locker)
             {
-                Logger.LogInformation("Starting service");
+                if (started)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (Db.IsPrimaryServer())
+                {
+                    Logger.LogInformation("Starting service");
+                    started = true;
+                }
             }
-            return Task.CompletedTask;
+
+            return ExecuteAsync(cancellationToken);
         }
 
         public virtual Task StopAsync(CancellationToken cancellationToken)
         {
-            if (Db.IsPrimaryServer())
+            lock (locker)
             {
-                Logger.LogInformation("Stop service");
+                if (!started)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (Db.IsPrimaryServer())
+                {
+                    Logger.LogInformation("Stop service");
+                    started = false;
+                }
             }
+
             return Task.CompletedTask;
         }
 
@@ -71,6 +93,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task ExecuteAsync(CancellationToken token)
         {
+            Logger.LogInformation("Execute worker");
             return Task.CompletedTask;
         }
     }

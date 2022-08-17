@@ -1,6 +1,6 @@
-### Imato.Services.RegularWorker
+## Imato.Services.RegularWorker
 
-#### Create long running services and workers
+### Create long running services and workers
 
 1. Create new worker
 ```csharp
@@ -40,11 +40,11 @@ var appBuilder = Host.CreateDefaultBuilder(args)
 using Imato.Services.RegularWorker;
 
 var app = appBuilder.Build();
-app.StartServices();
+app.StartHostedServices();
 await app.RunAsync();
 ```
 
-#### Using Log table in MS SQL server
+### Using Log table in MS SQL server
 
 Add configuration for DbLogger: ConnectionString, Table and table Columns
 ```json

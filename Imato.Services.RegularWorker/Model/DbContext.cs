@@ -37,8 +37,11 @@ namespace Imato.Services.RegularWorker
             const string sql = "select Id, Name, Value from dbo.Configs where Name = @name";
             using (Connection)
             {
-                return await Connection.QueryFirstOrDefaultAsync<ConfigValue>(sql, new { name })
-                    ?? throw new ApplicationException($"Cannot find configuration {name}");
+                var config = await Connection.QueryFirstOrDefaultAsync<ConfigValue>(sql, new { name });
+                if (config != null) return config;
+                config = new ConfigValue { Name = name, Value = "" };
+                await UpdateConfigAsync(config);
+                return config;
             }
         }
 

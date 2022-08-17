@@ -1,4 +1,6 @@
-﻿namespace Imato.Services.RegularWorker
+﻿using Microsoft.Extensions.Logging;
+
+namespace Imato.Services.RegularWorker
 {
     public abstract class RegularWorker : BaseWorker, IRegularWorker
     {
@@ -12,19 +14,33 @@
 
         public override async Task StartAsync(CancellationToken token)
         {
-            await base.StartAsync(token);
+            lock (locker)
+            {
+                if (started)
+                {
+                    return;
+                }
+
+                if (Db.IsPrimaryServer())
+                {
+                    Logger.LogInformation("Starting service");
+                    started = true;
+                }
+            }
 
             while (!token.IsCancellationRequested)
             {
                 if (Db.IsPrimaryServer())
                 {
-                    await TryAsync(async () =>
-                    {
-                        startTime = DateTime.Now;
-                        await ExecuteAsync(token);
-                        var wait = StartInterval - (int)(DateTime.Now - startTime).TotalMilliseconds;
-                        if (wait > 0) Thread.Sleep(wait);
-                    });
+                    startTime = DateTime.Now;
+                    await TryAsync(() => ExecuteAsync(token));
+                    var wait = StartInterval - (int)(DateTime.Now - startTime).TotalMilliseconds;
+                    if (wait > 0) await Task.Delay(wait);
+                }
+                else
+                {
+                    Logger.LogInformation("Wait activation");
+                    await Task.Delay(StartInterval);
                 }
             }
         }
