@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data.SqlClient;
 using Dapper;
@@ -9,25 +8,28 @@ namespace Imato.Services.RegularWorker
 {
     public class DbLogger : ILogger
     {
-        private readonly SqlConnection connection;
+        private readonly SqlConnection? connection;
         private readonly string category;
         private static readonly ConcurrentQueue<DbLogEvent> queue = new ConcurrentQueue<DbLogEvent>();
 
-        private readonly string sqlTable, sqlColumns;
+        private readonly string? sqlTable, sqlColumns;
 
         private string sqlSaveLog => $"insert into {sqlTable} ({sqlColumns})" + @"
 values (@date, @user, @level, @source, @message, @server);";
 
-        public DbLogger(string category, IOptions<DbLoggerOptions> options) : this(category, options.Value)
+        public DbLogger(string category, IOptions<DbLoggerOptions?> options) : this(category, options?.Value)
         {
         }
 
-        public DbLogger(string category, DbLoggerOptions options)
+        public DbLogger(string category, DbLoggerOptions? options)
         {
             this.category = category;
-            connection = new SqlConnection(options.ConnectionString);
-            sqlTable = options.Table;
-            sqlColumns = options.Columns;
+            if (options != null)
+            {
+                connection = new SqlConnection(options.ConnectionString);
+                sqlTable = options.Table;
+                sqlColumns = options.Columns;
+            }
         }
 
         public IDisposable BeginScope<TState>(TState state)
@@ -89,25 +91,28 @@ values (@date, @user, @level, @source, @message, @server);";
 
         public async Task Save()
         {
-            try
+            if (connection != null && sqlTable != null & sqlColumns != null)
             {
-                while (queue.TryDequeue(out var log) && log != null)
+                try
                 {
-                    await connection.ExecuteAsync(sqlSaveLog, log);
+                    while (queue.TryDequeue(out var log) && log != null)
+                    {
+                        await connection.ExecuteAsync(sqlSaveLog, log);
+                    }
                 }
+                catch { }
             }
-            catch { }
         }
     }
 
     [ProviderAlias("DbLogger")]
     public class DbLoggerProvider : ILoggerProvider
     {
-        public DbLoggerOptions Options { get; }
+        public DbLoggerOptions? Options { get; }
 
-        public DbLoggerProvider(IOptions<DbLoggerOptions> options)
+        public DbLoggerProvider(IOptions<DbLoggerOptions?> options)
         {
-            Options = options.Value;
+            Options = options?.Value;
         }
 
         public ILogger CreateLogger(string categoryName)
