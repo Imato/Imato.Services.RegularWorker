@@ -12,33 +12,40 @@ namespace Imato.Services.RegularWorker
 
         public override async Task StartAsync(CancellationToken token)
         {
-            lock (locker)
+            if (Settings.Enabled)
             {
-                if (!started)
+                lock (locker)
                 {
-                    Logger.LogInformation("Starting service");
-                    started = true;
+                    if (!started)
+                    {
+                        Logger.LogInformation("Starting worker");
+                        started = true;
+                    }
+                    else
+                    {
+                        return;
+                    }
                 }
-                else
+
+                while (!token.IsCancellationRequested)
                 {
-                    return;
+                    if (CanStart())
+                    {
+                        startTime = DateTime.Now;
+                        await TryAsync(() => ExecuteAsync(token));
+                        var wait = Settings.StartInterval - (int)(DateTime.Now - startTime).TotalMilliseconds;
+                        if (wait > 0) await Task.Delay(wait);
+                    }
+                    else
+                    {
+                        Logger.LogDebug("Wait activation");
+                        await Task.Delay(Settings.StartInterval);
+                    }
                 }
             }
-
-            while (!token.IsCancellationRequested)
+            else
             {
-                if (!Settings.RunOnlyOnPrimaryServer || Db.IsPrimaryServer())
-                {
-                    startTime = DateTime.Now;
-                    await TryAsync(() => ExecuteAsync(token));
-                    var wait = Settings.StartInterval - (int)(DateTime.Now - startTime).TotalMilliseconds;
-                    if (wait > 0) await Task.Delay(wait);
-                }
-                else
-                {
-                    Logger.LogInformation("Wait activation");
-                    await Task.Delay(Settings.StartInterval);
-                }
+                Logger.LogInformation("Worker disabled");
             }
         }
     }

@@ -8,33 +8,70 @@ namespace Imato.Services.RegularWorker
     {
         private readonly string _connectionString;
         private string? _configTable = null;
+        private string _dbName = null!;
 
         public DbContext(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString();
+            if (string.IsNullOrEmpty(_connectionString))
+            {
+                throw new ApplicationException("Cannot find connection string in configuration file");
+            }
         }
 
-        protected SqlConnection GetConnection() => new SqlConnection(_connectionString);
+        public string GetDbName()
+        {
+            if (_dbName == null)
+            {
+                var sb = new SqlConnectionStringBuilder(_connectionString);
+                _dbName = sb.InitialCatalog;
+            }
+
+            return _dbName;
+        }
+
+        public SqlConnection GetConnection(string dbName = "")
+        {
+            var connectionString = _connectionString;
+
+            if (!string.IsNullOrEmpty(dbName))
+            {
+                var sb = new SqlConnectionStringBuilder(connectionString);
+                sb.InitialCatalog = dbName;
+                connectionString = sb.ConnectionString;
+            }
+
+            return new SqlConnection(connectionString);
+        }
 
         public bool IsPrimaryServer()
         {
             const string sql = "select top 1 @@SERVERNAME from sys.tables";
-            using (var connection = GetConnection())
+            using (var connection = GetConnection("master"))
             {
-                try
+                connection.Open();
+                if (connection.DataSource != "localhost")
                 {
-                    connection.Open();
-                    if (connection.DataSource != "localhost")
-                    {
-                        return connection.DataSource == Environment.MachineName;
-                    }
+                    return connection.DataSource == Environment.MachineName;
+                }
 
-                    return connection.QueryFirst<string>(sql) == Environment.MachineName;
-                }
-                catch
-                {
-                    return false;
-                }
+                return connection.QueryFirst<string>(sql) == Environment.MachineName;
+            }
+        }
+
+        public bool IsDbActive()
+        {
+            const string sql = @"
+declare @status bit = 0;
+select @status = cast(iif(status = 65536, 1, 0) as bit)
+	from sys.sysdatabases
+	where name = @name
+select @status";
+
+            using (var connection = GetConnection("master"))
+            {
+                connection.Open();
+                return connection.QueryFirst<bool>(sql, new { name = GetDbName() });
             }
         }
 

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace Imato.Services.RegularWorker
 {
@@ -8,16 +9,21 @@ namespace Imato.Services.RegularWorker
     {
         protected readonly ILogger Logger;
         protected readonly DbContext Db;
+        protected readonly IConfiguration Configuration;
+        public readonly string Name;
         protected WorkerSettings Settings = new WorkerSettings();
         private readonly IServiceProvider provider;
         protected readonly object locker = new object();
-        protected bool started = false;
+        protected bool started;
 
         public BaseWorker(IServiceProvider provider)
         {
             this.provider = provider;
             Logger = GetService<ILoggerFactory>().CreateLogger(GetType());
             Db = GetService<DbContext>();
+            Configuration = GetService<IConfiguration>();
+            Name = GetType().Name;
+            LoadSettings();
         }
 
         protected void LogError(Exception ex)
@@ -49,20 +55,45 @@ namespace Imato.Services.RegularWorker
             }
         }
 
+        protected bool CanStart()
+        {
+            var result = !Settings.Enabled || Settings.RunOn == RunOn.None;
+            if (result)
+                return false;
+            result = Settings.RunOn == RunOn.EveryWhere;
+            if (result)
+                return result;
+            var status = Db.IsPrimaryServer();
+            result = Settings.RunOn == RunOn.PrimaryServer && status;
+            if (result)
+                return result;
+            result = Settings.RunOn == RunOn.SecondaryServer && !status;
+            if (result)
+                return result;
+            return false;
+        }
+
         public virtual Task StartAsync(CancellationToken cancellationToken)
         {
-            lock (locker)
+            if (Settings.Enabled)
             {
-                if (!started)
+                lock (locker)
                 {
-                    Logger.LogInformation("Starting service");
-                    started = true;
-
-                    if (!Settings.RunOnlyOnPrimaryServer || Db.IsPrimaryServer())
+                    if (!started)
                     {
-                        return ExecuteAsync(cancellationToken);
+                        Logger.LogInformation("Starting worker");
+                        started = true;
+
+                        if (CanStart())
+                        {
+                            return ExecuteAsync(cancellationToken);
+                        }
                     }
                 }
+            }
+            else
+            {
+                Logger.LogInformation("Worker disabled");
             }
 
             return Task.CompletedTask;
@@ -77,11 +108,23 @@ namespace Imato.Services.RegularWorker
                     return Task.CompletedTask;
                 }
 
-                Logger.LogInformation("Stop service");
+                Logger.LogInformation("Stop worker");
                 started = false;
             }
 
             return Task.CompletedTask;
+        }
+
+        protected void LoadSettings()
+        {
+            var workersSettings = Configuration
+                .GetSection("Workers")
+                .Get<Dictionary<string, WorkerSettings>?>();
+
+            if (workersSettings != null && workersSettings.ContainsKey(Name))
+            {
+                Settings = workersSettings[Name];
+            }
         }
 
         protected T GetService<T>() where T : class

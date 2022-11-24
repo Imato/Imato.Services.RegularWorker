@@ -10,11 +10,6 @@ namespace Imato.Services.RegularWorker
             : base(provider)
         {
             dbLogger = new DbLogger("LogWorker", options.Value);
-            Settings = new WorkerSettings
-            {
-                RunOnlyOnPrimaryServer = false,
-                StartInterval = 5000
-            };
         }
 
         public override async Task ExecuteAsync(CancellationToken token)

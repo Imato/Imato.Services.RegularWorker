@@ -2,7 +2,16 @@
 {
     public class WorkerSettings
     {
-        public bool RunOnlyOnPrimaryServer { get; set; } = true;
+        public RunOn RunOn { get; set; } = RunOn.EveryWhere;
         public int StartInterval { get; set; } = 5000;
+        public bool Enabled { get; set; } = true;
+    }
+
+    public enum RunOn
+    {
+        None = 0,
+        PrimaryServer = 1,
+        SecondaryServer = 2,
+        EveryWhere = 3
     }
 }

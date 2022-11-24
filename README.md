@@ -44,6 +44,21 @@ app.StartHostedServices();
 await app.RunAsync();
 ```
 
+4. Configure worker  
+appsettings.Example.json
+```json
+{
+"Workers": {
+    "LogWorker": {
+      "StartInterval": 15000,
+      "RunOn": "EveryWhere",
+      "Enabled": true
+    }
+  }
+}
+```
+RunOn: PrimaryServer, SecondaryServer, EveryWhere
+
 ### Using Log table in MS SQL server
 
 Add configuration for DbLogger: ConnectionString, Table and table Columns
