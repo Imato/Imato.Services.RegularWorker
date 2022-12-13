@@ -13,13 +13,13 @@
 		<Authors>Alexey Varentsov (@imato)</Authors>
 		<Company>Imato</Company>
 		<PackageProjectUrl>https://github.com/Imato/Imato.Services.RegularWorker</PackageProjectUrl>
-		<Description>Reflection utils</Description>
+		<Description>Base regular worker</Description>
 		<Summary></Summary>
 		<RepositoryUrl>https://github.com/Imato/Imato.Services.RegularWorker</RepositoryUrl>
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>2.1.1</Version>
+		<Version>2.2.1</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>

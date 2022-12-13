@@ -7,8 +7,9 @@ namespace Imato.Services.RegularWorker
     public class DbContext
     {
         private readonly string _connectionString;
-        private string? _configTable = null;
         private string _dbName = null!;
+
+        protected string? ConfigurationTable { get; set; }
 
         public DbContext(IConfiguration configuration)
         {
@@ -75,9 +76,9 @@ select @status";
             }
         }
 
-        private string GetConfigTable()
+        protected string GetConfigTable()
         {
-            if (_configTable == null)
+            if (ConfigurationTable == null)
             {
                 using (var connection = GetConnection())
                 {
@@ -86,15 +87,15 @@ select top 1 schema_name(t.schema_id) + '.' + t.name
 	from sys.tables t
 	where name like 'config%'";
 
-                    _configTable = connection.QuerySingleOrDefault<string>(sql)
+                    ConfigurationTable = connection.QuerySingleOrDefault<string>(sql)
                         ?? throw new Exception("Cannot find config table in DB");
                 }
             }
 
-            return _configTable;
+            return ConfigurationTable;
         }
 
-        public async Task<ConfigValue> GetConfigAsync(string name)
+        public virtual async Task<ConfigValue> GetConfigAsync(string name)
         {
             var sql = $"select Id, Name, Value from {GetConfigTable()} where Name = @name";
             using (var connection = GetConnection())
@@ -107,7 +108,7 @@ select top 1 schema_name(t.schema_id) + '.' + t.name
             }
         }
 
-        public async Task UpdateConfigAsync(ConfigValue config)
+        public virtual async Task UpdateConfigAsync(ConfigValue config)
         {
             var sql = @"
 update {0}
