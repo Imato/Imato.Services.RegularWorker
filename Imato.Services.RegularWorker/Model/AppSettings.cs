@@ -1,4 +1,6 @@
-﻿namespace Imato.Services.RegularWorker
+﻿using System;
+
+namespace Imato.Services.RegularWorker
 {
     public class AppSettings
     {

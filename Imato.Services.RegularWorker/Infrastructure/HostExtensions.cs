@@ -2,11 +2,18 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Imato.Services.RegularWorker
 {
     public static class HostExtensions
     {
+        private static CancellationTokenSource _startToken = new CancellationTokenSource();
+
         public static ILoggingBuilder AddDbLoggerConfig(this ILoggingBuilder builder, Action<DbLoggerOptions> configure)
         {
             builder.Services.AddSingleton<ILoggerProvider, DbLoggerProvider>();
@@ -29,39 +36,34 @@ namespace Imato.Services.RegularWorker
             return builder;
         }
 
-        public static void StartHostedServices(this IHost app)
+        public static IEnumerable<IWorker> GetWorkers(
+            this IHost app,
+            string? workerName = null)
         {
             var provider = app.Services.CreateScope().ServiceProvider;
-            foreach (var worker in provider.GetServices<IHostedService>())
-            {
-                Task.Factory.StartNew(() => worker.StartAsync(CancellationToken.None),
-                        TaskCreationOptions.LongRunning);
-            }
+            return provider
+                .GetServices<IWorker>()
+                .Where(x => workerName == null
+                            || x.GetType().Name == workerName
+                            || x.GetType().Name == "LogWorker");
         }
 
-        public static void StopHostedServices(this IHost app)
+        public static IEnumerable<IWorker> StartWorkers(this IHost app, string? workerName = null)
         {
-            var provider = app.Services.CreateScope().ServiceProvider;
-            foreach (var worker in provider.GetServices<IHostedService>())
+            var workers = GetWorkers(app, workerName).ToArray();
+            foreach (var worker in workers)
             {
-                worker.StopAsync(CancellationToken.None).Wait();
+                Task.Factory
+                    .StartNew(() => worker.StartAsync(_startToken.Token),
+                        _startToken.Token);
             }
-        }
-
-        public static void StartWorkers(this IHost app)
-        {
-            var provider = app.Services.CreateScope().ServiceProvider;
-            foreach (var worker in provider.GetServices<IWorker>())
-            {
-                Task.Factory.StartNew(() => worker.StartAsync(CancellationToken.None),
-                        TaskCreationOptions.LongRunning);
-            }
+            return workers;
         }
 
         public static void StopWorkers(this IHost app)
         {
-            var provider = app.Services.CreateScope().ServiceProvider;
-            foreach (var worker in provider.GetServices<IWorker>())
+            _startToken.Cancel();
+            foreach (var worker in GetWorkers(app))
             {
                 worker.StopAsync(CancellationToken.None).Wait();
             }

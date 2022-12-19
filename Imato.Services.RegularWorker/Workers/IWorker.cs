@@ -1,11 +1,11 @@
-﻿namespace Imato.Services.RegularWorker
+﻿using Microsoft.Extensions.Hosting;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Imato.Services.RegularWorker
 {
-    public interface IWorker
+    public interface IWorker : IHostedService
     {
         Task ExecuteAsync(CancellationToken token);
-
-        Task StartAsync(CancellationToken cancellationToken);
-
-        Task StopAsync(CancellationToken cancellationToken);
     }
 }

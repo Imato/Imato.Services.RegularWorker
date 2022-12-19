@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
+		<TargetFramework>netstandard2.1</TargetFramework>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
@@ -19,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>2.2.1</Version>
+		<Version>2.3.0</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>

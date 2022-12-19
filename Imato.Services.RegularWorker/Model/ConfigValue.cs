@@ -8,7 +8,7 @@ namespace Imato.Services.RegularWorker
         public string Name { get; set; } = "";
         public string Value { get; set; } = "";
 
-        public T? GetValue<T>()
+        public T? GetValue<T>() where T : class
         {
             if (string.IsNullOrEmpty(Value))
                 return default;

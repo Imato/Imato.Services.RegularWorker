@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 using System.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Options;
+using System;
+using System.Threading.Tasks;
+using System.Reflection;
 
 namespace Imato.Services.RegularWorker
 {
@@ -23,7 +26,9 @@ values (@date, @user, @level, @source, @message, @server);";
 
         public DbLogger(string category, DbLoggerOptions? options)
         {
-            this.category = category;
+            var assembly = Assembly.GetEntryAssembly().GetName().Name;
+            category = category.Replace($"{assembly}.", "");
+            this.category = $"{assembly}: {category}";
             if (options != null)
             {
                 connection = new SqlConnection(options.ConnectionString);
@@ -85,7 +90,14 @@ values (@date, @user, @level, @source, @message, @server);";
                         break;
                 }
 
-                queue.Enqueue(log);
+                if (log.Level == 3)
+                {
+                    connection.Execute(sqlSaveLog, log);
+                }
+                else
+                {
+                    queue.Enqueue(log);
+                }
             }
         }
 

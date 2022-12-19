@@ -2,6 +2,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using System;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Linq;
 
 namespace Imato.Services.RegularWorker
 {
@@ -10,9 +16,13 @@ namespace Imato.Services.RegularWorker
         protected readonly ILogger Logger;
         protected readonly DbContext Db;
         protected readonly IConfiguration Configuration;
-        public readonly string Name;
-        protected WorkerSettings Settings = new WorkerSettings();
         private readonly IServiceProvider provider;
+
+        protected WorkerSettings Settings = new WorkerSettings();
+        private WorkerStatus _status;
+
+        public readonly string Name;
+
         protected readonly object locker = new object();
         protected bool started;
 
@@ -24,6 +34,13 @@ namespace Imato.Services.RegularWorker
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
             LoadSettings();
+            _status = new WorkerStatus
+            {
+                Name = Name,
+                Host = Environment.MachineName,
+                Date = DateTime.Now,
+                Settings = JsonSerializer.Serialize(Settings, Constants.JsonOptions)
+            };
         }
 
         protected void LogError(Exception ex)
@@ -57,61 +74,113 @@ namespace Imato.Services.RegularWorker
 
         protected bool CanStart()
         {
-            var result = !Settings.Enabled || Settings.RunOn == RunOn.None;
-            if (result)
-                return false;
+            var result = Db.IsDbActive();
+            if (!result)
+            {
+                Logger.LogWarning("Connection to DB is not active");
+                return result;
+            }
+
             result = Settings.RunOn == RunOn.EveryWhere;
             if (result)
+            {
+                Logger.LogInformation("Worker is active on each server");
                 return result;
-            var status = Db.IsPrimaryServer();
-            result = Settings.RunOn == RunOn.PrimaryServer && status;
+            }
+
+            var isPrimaty = Db.IsPrimaryServer();
+            result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
+            {
+                Logger.LogInformation("Worker is active on primary server");
                 return result;
-            result = Settings.RunOn == RunOn.SecondaryServer && !status;
+            }
+
+            result = Settings.RunOn == RunOn.SecondaryServer && !isPrimaty;
             if (result)
+            {
+                Logger.LogInformation("Worker is active on secondary server");
                 return result;
+            }
+
+            result = Db.GetHostCount(Name) == 0;
+            if (result)
+            {
+                Logger.LogInformation("Worker is active on single server");
+                return result;
+            }
+
             return false;
         }
 
-        public virtual Task StartAsync(CancellationToken cancellationToken)
+        protected WorkerStatus GetStatus()
         {
-            if (Settings.Enabled)
+            _status.Date = DateTime.Now;
+            var active = CanStart();
+            if (_status.Active != active)
             {
-                lock (locker)
+                _status.Active = active;
+                if (_status.Active)
                 {
-                    if (!started)
-                    {
-                        Logger.LogInformation("Starting worker");
-                        started = true;
-
-                        if (CanStart())
-                        {
-                            return ExecuteAsync(cancellationToken);
-                        }
-                    }
+                    Logger.LogInformation("Activate worker");
+                }
+                else
+                {
+                    Logger.LogInformation("Deactivate worker");
                 }
             }
-            else
+            if (!active)
             {
-                Logger.LogInformation("Worker disabled");
+                Logger.LogInformation("Worker is not active");
+            }
+            _status = Db.SetStatus(_status);
+
+            return _status;
+        }
+
+        protected bool Start()
+        {
+            lock (locker)
+            {
+                if (!started)
+                {
+                    started = true;
+                    Logger.LogInformation("Initialize worker");
+                }
             }
 
-            return Task.CompletedTask;
+            return started;
+        }
+
+        public virtual async Task StartAsync(CancellationToken token)
+        {
+            if (!Settings.Enabled)
+            {
+                Logger.LogInformation("Worker is disabled");
+                return;
+            }
+
+            await TryAsync(async () =>
+            {
+                if (Start() && GetStatus().Active)
+                {
+                    await ExecuteAsync(token);
+                }
+            });
         }
 
         public virtual Task StopAsync(CancellationToken cancellationToken)
         {
             lock (locker)
             {
-                if (!started)
+                if (started)
                 {
-                    return Task.CompletedTask;
+                    started = false;
+                    _status.Active = false;
+                    Settings.Enabled = false;
+                    Logger.LogInformation("Stop worker");
                 }
-
-                Logger.LogInformation("Stop worker");
-                started = false;
             }
-
             return Task.CompletedTask;
         }
 
