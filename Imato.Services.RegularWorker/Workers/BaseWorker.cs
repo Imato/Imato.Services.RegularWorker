@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Generic;
 using System.Text.Json;
-using System.Linq;
 
 namespace Imato.Services.RegularWorker
 {
@@ -21,10 +20,12 @@ namespace Imato.Services.RegularWorker
         protected WorkerSettings Settings = new WorkerSettings();
         private WorkerStatus _status;
 
-        public readonly string Name;
+        public string Name { get; }
 
         protected readonly object locker = new object();
-        protected bool started;
+        protected bool _started;
+
+        public bool Started => _started;
 
         public BaseWorker(IServiceProvider provider)
         {
@@ -45,7 +46,11 @@ namespace Imato.Services.RegularWorker
 
         protected void LogError(Exception ex)
         {
-            Logger.LogError(ex.ToString());
+            try
+            {
+                Logger.LogError(ex.ToString());
+            }
+            catch { }
         }
 
         protected async Task TryAsync(Func<Task> func)
@@ -53,18 +58,6 @@ namespace Imato.Services.RegularWorker
             try
             {
                 await func();
-            }
-            catch (Exception ex)
-            {
-                LogError(ex);
-            }
-        }
-
-        protected void Try(Action action)
-        {
-            try
-            {
-                action();
             }
             catch (Exception ex)
             {
@@ -142,14 +135,14 @@ namespace Imato.Services.RegularWorker
         {
             lock (locker)
             {
-                if (!started)
+                if (!_started)
                 {
-                    started = true;
+                    _started = true;
                     Logger.LogInformation("Initialize worker");
                 }
             }
 
-            return started;
+            return _started;
         }
 
         public virtual async Task StartAsync(CancellationToken token)
@@ -171,16 +164,21 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task StopAsync(CancellationToken cancellationToken)
         {
-            lock (locker)
+            try
             {
-                if (started)
+                lock (locker)
                 {
-                    started = false;
-                    _status.Active = false;
-                    Settings.Enabled = false;
-                    Logger.LogInformation("Stop worker");
+                    if (_started)
+                    {
+                        _started = false;
+                        _status.Active = false;
+                        Settings.Enabled = false;
+                        Logger.LogInformation("Stop worker");
+                    }
                 }
             }
+            catch { }
+
             return Task.CompletedTask;
         }
 
@@ -198,7 +196,8 @@ namespace Imato.Services.RegularWorker
 
         protected T GetService<T>() where T : class
         {
-            return provider.GetService<T>() ?? throw new ArgumentException($"Unknown type {typeof(T).Name}");
+            return provider.GetService<T>()
+                ?? throw new ArgumentException($"Not registered in DI type {typeof(T).Name}");
         }
 
         public virtual Task ExecuteAsync(CancellationToken token)

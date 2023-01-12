@@ -159,7 +159,8 @@ create table dbo.Workers
 name varchar(255) not null,
 host varchar(255) not null,
 date datetime not null,
-settings varchar(2000) not null);
+settings varchar(2000) not null,
+active bit not null);
 
 alter table dbo.Workers
 add constraint Workers__PK primary key (id);

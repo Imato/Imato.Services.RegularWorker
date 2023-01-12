@@ -20,28 +20,25 @@ namespace Imato.Services.RegularWorker
                 return;
             }
 
-            await TryAsync(async () =>
+            if (Start())
             {
-                if (Start())
+                while (!token.IsCancellationRequested && Settings.Enabled)
                 {
-                    while (!token.IsCancellationRequested && Settings.Enabled)
+                    var status = GetStatus();
+                    if (status.Active)
                     {
-                        var status = GetStatus();
-                        if (status.Active)
-                        {
-                            await ExecuteAsync(token);
-                            var wait = Settings.StartInterval
-                                - (int)(DateTime.Now - status.Date).TotalMilliseconds;
-                            if (wait > 0) await Task.Delay(wait);
-                        }
-                        else
-                        {
-                            Logger.LogDebug("Wait activation");
-                            await Task.Delay(Settings.StartInterval);
-                        }
+                        await TryAsync(async () => await ExecuteAsync(token));
+                        var wait = Settings.StartInterval
+                            - (int)(DateTime.Now - status.Date).TotalMilliseconds;
+                        if (wait > 0) await Task.Delay(wait);
+                    }
+                    else
+                    {
+                        Logger.LogDebug("Wait activation");
+                        await Task.Delay(Settings.StartInterval);
                     }
                 }
-            });
+            }
         }
     }
 }

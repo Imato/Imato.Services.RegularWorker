@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Imato.Services.RegularWorker.Workers;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -13,8 +14,11 @@ namespace Imato.Services.RegularWorker
     public static class HostExtensions
     {
         private static CancellationTokenSource _startToken = new CancellationTokenSource();
+        private static WorkersWatcher _watcher = null!;
 
-        public static ILoggingBuilder AddDbLoggerConfig(this ILoggingBuilder builder, Action<DbLoggerOptions> configure)
+        public static ILoggingBuilder AddDbLoggerConfig(
+            this ILoggingBuilder builder,
+            Action<DbLoggerOptions> configure)
         {
             builder.Services.AddSingleton<ILoggerProvider, DbLoggerProvider>();
             builder.Services.Configure(configure);
@@ -43,21 +47,18 @@ namespace Imato.Services.RegularWorker
             var provider = app.Services.CreateScope().ServiceProvider;
             return provider
                 .GetServices<IWorker>()
-                .Where(x => workerName == null
+                .Where(x => (workerName == null
                             || x.GetType().Name == workerName
-                            || x.GetType().Name == "LogWorker");
+                            || x.GetType().Name == "LogWorker")
+                            && x.GetType().Name != "WorkersWatcher");
         }
 
-        public static IEnumerable<IWorker> StartWorkers(this IHost app, string? workerName = null)
+        public static void StartWorkers(this IHost app, string? workerName = null)
         {
-            var workers = GetWorkers(app, workerName).ToArray();
-            foreach (var worker in workers)
-            {
-                Task.Factory
-                    .StartNew(() => worker.StartAsync(_startToken.Token),
-                        _startToken.Token);
-            }
-            return workers;
+            _watcher = new WorkersWatcher(app, workerName);
+            Task.Factory
+                .StartNew(() => _watcher.StartAsync(_startToken.Token),
+                    _startToken.Token);
         }
 
         public static void StopWorkers(this IHost app)
