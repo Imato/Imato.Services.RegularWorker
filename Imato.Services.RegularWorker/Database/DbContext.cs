@@ -76,24 +76,29 @@ namespace Imato.Services.RegularWorker
 
         public bool IsDbActive()
         {
-            const string sql = @"
+            const string sqlStatus = @"
 declare @status bit = 0;
 select @status = cast(iif(status in (65544, 65536), 1, 0) as bit)
 	from sys.sysdatabases
 	where name = @name
 select @status";
+            const string sqlServer = "select @@SERVERNAME";
 
-            using (var connection = GetConnection("master"))
+            using (var connection = GetConnection())
             {
-                try
+                connection.Open();
+                var result = connection.QueryFirst<bool>(
+                    sqlStatus,
+                    new { name = GetDbName() });
+                if (result)
                 {
-                    connection.Open();
-                    return connection.QueryFirst<bool>(sql, new { name = GetDbName() });
+                    return result;
                 }
-                catch
-                {
-                    return false;
-                }
+
+                var serverName = connection.QueryFirst<string>(sqlServer);
+                return serverName.Equals(
+                    Environment.MachineName,
+                    StringComparison.OrdinalIgnoreCase);
             }
         }
 

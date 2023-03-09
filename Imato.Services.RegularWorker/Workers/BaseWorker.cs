@@ -70,7 +70,7 @@ namespace Imato.Services.RegularWorker
             var result = Db.IsDbActive();
             if (!result)
             {
-                Logger.LogWarning("Connection to DB is not active");
+                Logger.LogInformation("Connection to DB is not active");
                 return result;
             }
 
