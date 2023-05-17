@@ -46,7 +46,8 @@ namespace Imato.Services.RegularWorker.Workers
                 if (_tasks.ContainsKey(worker.Name))
                 {
                     var existsTask = _tasks[worker.Name];
-                    if (existsTask.Status == TaskStatus.Faulted)
+                    if (existsTask.Status == TaskStatus.Faulted
+                        || existsTask.Status == TaskStatus.Canceled)
                     {
                         Logger.LogWarning($"Restart {worker.Name} after fail");
                         await worker.StopAsync(token);

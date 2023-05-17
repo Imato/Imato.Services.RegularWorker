@@ -13,7 +13,7 @@ namespace Imato.Services.RegularWorker
     public class BaseWorker : IHostedService, IWorker
     {
         protected readonly ILogger Logger;
-        protected readonly DbContext Db;
+        protected readonly IWorkersContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
 
@@ -31,7 +31,7 @@ namespace Imato.Services.RegularWorker
         {
             this.provider = provider;
             Logger = GetService<ILoggerFactory>().CreateLogger(GetType());
-            Db = GetService<DbContext>();
+            Db = GetService<IWorkersContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
             LoadSettings();
@@ -70,7 +70,7 @@ namespace Imato.Services.RegularWorker
             var result = Db.IsDbActive();
             if (!result)
             {
-                Logger.LogInformation("Connection to DB is not active");
+                Logger.LogWarning("Connection to DB is not active");
                 return result;
             }
 
@@ -96,7 +96,7 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            result = Db.GetHostCount(Name) == 0;
+            result = Db.GetHostCount(Name) == 1;
             if (result)
             {
                 Logger.LogInformation("Worker is active on single server");

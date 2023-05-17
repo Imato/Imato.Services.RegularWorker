@@ -19,6 +19,7 @@ namespace Imato.Services.RegularWorker
         {
             await base.ExecuteAsync(token);
             await dbLogger.Save();
+            await dbLogger.Clear();
         }
     }
 }

@@ -20,6 +20,8 @@ namespace Imato.Services.RegularWorker
         private string sqlSaveLog => $"insert into {sqlTable} ({sqlColumns})" + @"
 values (@date, @user, @level, @source, @message, @server);";
 
+        private string sqlClear => $"delete from {sqlTable} where {DateColumn} <= dateadd(day, -0, gatdate());";
+
         public DbLogger(string category, IOptions<DbLoggerOptions?> options) : this(category, options?.Value)
         {
         }
@@ -42,9 +44,11 @@ values (@date, @user, @level, @source, @message, @server);";
             return null;
         }
 
+        public string DateColumn => sqlColumns?.Split(",")[0].Trim() ?? "Date";
+
         public bool IsEnabled(LogLevel logLevel)
         {
-            return logLevel != LogLevel.None;
+            return logLevel != LogLevel.None && IsActive;
         }
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
@@ -103,7 +107,7 @@ values (@date, @user, @level, @source, @message, @server);";
 
         public async Task Save()
         {
-            if (connection != null && sqlTable != null & sqlColumns != null)
+            if (IsActive)
             {
                 try
                 {
@@ -115,6 +119,13 @@ values (@date, @user, @level, @source, @message, @server);";
                 catch { }
             }
         }
+
+        public async Task Clear()
+        {
+        }
+
+        private bool IsActive =>
+            connection != null && sqlTable != null & sqlColumns != null;
     }
 
     [ProviderAlias("DbLogger")]

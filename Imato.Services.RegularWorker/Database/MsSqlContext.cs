@@ -4,22 +4,19 @@ using Dapper;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data;
+using System.Collections.Concurrent;
+using Imato.Services.RegularWorker.Database;
 
 namespace Imato.Services.RegularWorker
 {
-    public class DbContext
+    public class MsSqlContext : BaseContext, IWorkersContext
     {
-        private readonly string _connectionString;
-        private string _dbName = null!;
-        private readonly Dictionary<string, SqlConnection> _pool = new Dictionary<string, SqlConnection>();
-        private bool _workerTableExists;
+        public override string Name => "mssql";
 
-        protected string? ConfigurationTable { get; set; }
-
-        public DbContext(IConfiguration configuration)
+        public MsSqlContext(IConfiguration configuration)
+            : base(configuration)
         {
-            _connectionString = configuration.GetConnectionString();
             if (string.IsNullOrEmpty(_connectionString))
             {
                 throw new ApplicationException("Cannot find connection string in configuration file");
@@ -37,7 +34,7 @@ namespace Imato.Services.RegularWorker
             return _dbName;
         }
 
-        public SqlConnection GetConnection(string dbName = "", string connectionName = "")
+        public IDbConnection GetConnection(string dbName = "", string connectionName = "")
         {
             if (!string.IsNullOrEmpty(connectionName)
                 && _pool.ContainsKey(connectionName))
@@ -57,7 +54,7 @@ namespace Imato.Services.RegularWorker
             if (!string.IsNullOrEmpty(connectionName)
                 && !_pool.ContainsKey(connectionName))
             {
-                _pool.Add(connectionName, connection);
+                _pool.AddOrUpdate(connectionName, (_) => connection);
             }
 
             return connection;
@@ -70,7 +67,9 @@ namespace Imato.Services.RegularWorker
             {
                 connection.Open();
                 return connection.QueryFirst<string>(sql)
-                    .StartsWith(Environment.MachineName);
+                    .StartsWith(
+                        Environment.MachineName,
+                        StringComparison.OrdinalIgnoreCase);
             }
         }
 
@@ -78,10 +77,12 @@ namespace Imato.Services.RegularWorker
         {
             const string sqlStatus = @"
 declare @status bit = 0;
-select @status = cast(iif(status in (65544, 65536), 1, 0) as bit)
-	from sys.sysdatabases
+select @status = 1
+	from sys.databases
 	where name = @name
-select @status";
+		and user_access_desc = 'MULTI_USER'
+		and state_desc = 'ONLINE'
+select isnull(@status, 0)";
             const string sqlServer = "select @@SERVERNAME";
 
             using (var connection = GetConnection())
@@ -104,7 +105,7 @@ select @status";
 
         protected string GetConfigTable()
         {
-            if (ConfigurationTable == null)
+            if (configurationTable == null)
             {
                 using (var connection = GetConnection())
                 {
@@ -113,12 +114,12 @@ select top 1 schema_name(t.schema_id) + '.' + t.name
 	from sys.tables t
 	where name like 'config%'";
 
-                    ConfigurationTable = connection.QuerySingleOrDefault<string>(sql)
+                    configurationTable = connection.QuerySingleOrDefault<string>(sql)
                         ?? throw new Exception("Cannot find config table in DB");
                 }
             }
 
-            return ConfigurationTable;
+            return configurationTable;
         }
 
         public virtual async Task<ConfigValue> GetConfigAsync(string name)
@@ -152,7 +153,7 @@ if @@ROWCOUNT = 0
             }
         }
 
-        private void CreateWorkersTable(SqlConnection connection)
+        private void CreateWorkersTable(IDbConnection connection)
         {
             if (_workerTableExists) return;
 
@@ -177,7 +178,7 @@ end";
             _workerTableExists = true;
         }
 
-        internal IEnumerable<WorkerStatus> GetStatuses(string workerName)
+        public IEnumerable<WorkerStatus> GetStatuses(string workerName)
         {
             const string sql = "select * from dbo.Workers where name = @workerName";
             using var connection = GetConnection();
@@ -185,21 +186,20 @@ end";
                 .Query<WorkerStatus>(sql, new { workerName });
         }
 
-        internal int GetHostCount(string workerName)
+        public int GetHostCount(string workerName)
         {
             const string sql = @"
 select count(1)
 from dbo.Workers (nolock)
 where name = @workerName
-and date >= dateadd(minute, -1, getdate())
-and host != @host";
+and date >= dateadd(minute, -1, getdate())";
 
             using var connection = GetConnection();
             return connection
-                .QueryFirst<int>(sql, new { workerName, host = Environment.MachineName });
+                .QueryFirst<int>(sql, new { workerName });
         }
 
-        internal WorkerStatus SetStatus(WorkerStatus status)
+        public WorkerStatus SetStatus(WorkerStatus status)
         {
             const string sql = @"
 update dbo.Workers
