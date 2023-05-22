@@ -13,12 +13,22 @@
         public int StartInterval { get; set; } = 5000;
 
         public bool Enabled { get; set; } = true;
+
+        public override bool Equals(object obj)
+        {
+            var o = obj as WorkerSettings;
+            if (o == null) return false;
+            return o.Enabled == Enabled
+                && o.RunOn == RunOn.EveryWhere
+                && o.StartInterval == StartInterval;
+        }
     }
 
     public enum RunOn
     {
         EveryWhere,
         PrimaryServer,
-        SecondaryServer
+        SecondaryServer,
+        SecondaryServerFirst
     }
 }

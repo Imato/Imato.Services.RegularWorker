@@ -11,5 +11,7 @@ namespace Imato.Services.RegularWorker
         Task ExecuteAsync(CancellationToken token);
 
         bool Started { get; }
+
+        WorkerStatus Status { get; }
     }
 }

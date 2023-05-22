@@ -17,10 +17,11 @@ namespace Imato.Services.RegularWorker
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
 
-        protected WorkerSettings Settings = new WorkerSettings();
+        protected WorkerSettings _settings = new WorkerSettings();
         private WorkerStatus _status;
 
         public string Name { get; }
+        public WorkerStatus Status => _status;
 
         protected readonly object locker = new object();
         protected bool _started;
@@ -34,13 +35,13 @@ namespace Imato.Services.RegularWorker
             Db = GetService<DbContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
-            LoadSettings();
             _status = new WorkerStatus
             {
                 Name = Name,
                 Host = Environment.MachineName,
                 Date = DateTime.Now,
-                Settings = JsonSerializer.Serialize(Settings, Constants.JsonOptions)
+                Settings = JsonSerializer.Serialize(_settings,
+                    Constants.JsonOptions)
             };
         }
 
@@ -74,7 +75,10 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            result = Settings.RunOn == RunOn.EveryWhere;
+            result = Settings().Enabled;
+            if (!result) { return result; }
+
+            result = Settings().RunOn == RunOn.EveryWhere;
             if (result)
             {
                 Logger.LogInformation("Worker is active on each server");
@@ -82,25 +86,35 @@ namespace Imato.Services.RegularWorker
             }
 
             var isPrimaty = Db.IsPrimaryServer();
-            result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
+            result = Settings().RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
                 Logger.LogInformation("Worker is active on primary server");
                 return result;
             }
 
-            result = Settings.RunOn == RunOn.SecondaryServer && !isPrimaty;
+            var hosts = Db.GetHostCount(Name, StatusTimeout);
+
+            result = Settings().RunOn == RunOn.SecondaryServerFirst
+                && !isPrimaty && hosts <= 2;
+            if (result)
+            {
+                Logger.LogInformation("Worker is active on first secondary server");
+                return result;
+            }
+
+            result = Settings().RunOn == RunOn.SecondaryServer
+                && !isPrimaty;
             if (result)
             {
                 Logger.LogInformation("Worker is active on secondary server");
                 return result;
             }
 
-            result = Db.GetHostCount(Name) == 0;
-            if (result)
+            if (hosts == 1)
             {
                 Logger.LogInformation("Worker is active on single server");
-                return result;
+                return true;
             }
 
             return false;
@@ -147,7 +161,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual async Task StartAsync(CancellationToken token)
         {
-            if (!Settings.Enabled)
+            if (!Settings().Enabled)
             {
                 Logger.LogInformation("Worker is disabled");
                 return;
@@ -172,7 +186,7 @@ namespace Imato.Services.RegularWorker
                     {
                         _started = false;
                         _status.Active = false;
-                        Settings.Enabled = false;
+                        _settings.Enabled = false;
                         Logger.LogInformation("Stop worker");
                     }
                 }
@@ -182,16 +196,48 @@ namespace Imato.Services.RegularWorker
             return Task.CompletedTask;
         }
 
-        protected void LoadSettings()
+        protected int StatusTimeout
         {
+            get
+            {
+                var value = Configuration
+                    .GetValue<string>("Workers.StatusTimeout");
+                if (int.TryParse(value, out int result))
+                {
+                    return result;
+                }
+                return 60000;
+            }
+        }
+
+        public T Settings<T>()
+        {
+            T settings = default;
+
             var workersSettings = Configuration
                 .GetSection("Workers")
-                .Get<Dictionary<string, WorkerSettings>?>();
+                .Get<Dictionary<string, T>>();
 
             if (workersSettings != null && workersSettings.ContainsKey(Name))
             {
-                Settings = workersSettings[Name];
+                settings = workersSettings[Name];
             }
+
+            var dbSettings = _status.Settings;
+            if (!string.IsNullOrEmpty(dbSettings)
+                && dbSettings != JsonSerializer.Serialize(settings, Constants.JsonOptions))
+            {
+                settings = JsonSerializer.Deserialize<T>(dbSettings, Constants.JsonOptions) ?? settings;
+            }
+
+            return settings
+                ?? throw new ArgumentException($"Cannot find settings for {Name}");
+        }
+
+        public WorkerSettings Settings()
+        {
+            _settings = Settings<WorkerSettings>();
+            return _settings;
         }
 
         protected T GetService<T>() where T : class

@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -53,6 +53,12 @@ namespace Imato.Services.RegularWorker.Workers
                         existsTask.Dispose();
                         _tasks.Remove(worker.Name);
                         StartWorker(worker, token);
+                    }
+
+                    var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
+                    if (duration > StatusTimeout)
+                    {
+                        Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000} seconds");
                     }
                 }
             }

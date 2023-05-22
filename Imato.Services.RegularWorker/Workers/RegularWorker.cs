@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
-using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,7 +13,7 @@ namespace Imato.Services.RegularWorker
 
         public override async Task StartAsync(CancellationToken token)
         {
-            if (!Settings.Enabled)
+            if (!Settings().Enabled)
             {
                 Logger.LogInformation("Worker is disabled");
                 return;
@@ -22,20 +21,20 @@ namespace Imato.Services.RegularWorker
 
             if (Start())
             {
-                while (!token.IsCancellationRequested && Settings.Enabled)
+                while (!token.IsCancellationRequested)
                 {
                     var status = GetStatus();
                     if (status.Active)
                     {
                         await TryAsync(async () => await ExecuteAsync(token));
-                        var wait = Settings.StartInterval
+                        var wait = Settings().StartInterval
                             - (int)(DateTime.Now - status.Date).TotalMilliseconds;
                         if (wait > 0) await Task.Delay(wait);
                     }
                     else
                     {
                         Logger.LogDebug("Wait activation");
-                        await Task.Delay(Settings.StartInterval);
+                        await Task.Delay(Settings().StartInterval);
                     }
                 }
             }

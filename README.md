@@ -57,7 +57,9 @@ appsettings.Example.json
   }
 }
 ```
-RunOn: PrimaryServer, SecondaryServer, EveryWhere
+RunOn: PrimaryServer, SecondaryServer, SecondaryServerFirst, EveryWhere.
+
+Or configure throw field settings in Workers DB table.
 
 ### Using Log table in MS SQL server
 

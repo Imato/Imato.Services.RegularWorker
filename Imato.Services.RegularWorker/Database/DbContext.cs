@@ -4,7 +4,7 @@ using Dapper;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data;
 
 namespace Imato.Services.RegularWorker
 {
@@ -37,7 +37,7 @@ namespace Imato.Services.RegularWorker
             return _dbName;
         }
 
-        public SqlConnection GetConnection(string dbName = "", string connectionName = "")
+        public IDbConnection GetConnection(string dbName = "", string connectionName = "")
         {
             if (!string.IsNullOrEmpty(connectionName)
                 && _pool.ContainsKey(connectionName))
@@ -78,28 +78,17 @@ namespace Imato.Services.RegularWorker
         {
             const string sqlStatus = @"
 declare @status bit = 0;
-select @status = cast(iif(status in (65544, 65536), 1, 0) as bit)
-	from sys.sysdatabases
+select @status = cast(1 as bit)
+	from sys.databases
 	where name = @name
+		and user_access_desc = 'MULTI_USER'
+		and state_desc = 'ONLINE'
 select @status";
-            const string sqlServer = "select @@SERVERNAME";
 
-            using (var connection = GetConnection())
-            {
-                connection.Open();
-                var result = connection.QueryFirst<bool>(
+            var connection = GetConnection();
+            return connection.QueryFirst<bool>(
                     sqlStatus,
                     new { name = GetDbName() });
-                if (result)
-                {
-                    return result;
-                }
-
-                var serverName = connection.QueryFirst<string>(sqlServer);
-                return serverName.Equals(
-                    Environment.MachineName,
-                    StringComparison.OrdinalIgnoreCase);
-            }
         }
 
         protected string GetConfigTable()
@@ -152,7 +141,7 @@ if @@ROWCOUNT = 0
             }
         }
 
-        private void CreateWorkersTable(SqlConnection connection)
+        private void CreateWorkersTable(IDbConnection connection)
         {
             if (_workerTableExists) return;
 
@@ -177,33 +166,34 @@ end";
             _workerTableExists = true;
         }
 
-        internal IEnumerable<WorkerStatus> GetStatuses(string workerName)
+        public WorkerStatus? GetStatus(string workerName)
         {
-            const string sql = "select * from dbo.Workers where name = @workerName";
             using var connection = GetConnection();
             return connection
-                .Query<WorkerStatus>(sql, new { workerName });
+                .QueryFirstOrDefault<WorkerStatus>(
+                    "select top 1 * from dbo.Workers where name = @workerName and host = @host",
+                    new { workerName, host = Environment.MachineName });
         }
 
-        internal int GetHostCount(string workerName)
+        public int GetHostCount(string workerName,
+            int statusTimeout)
         {
             const string sql = @"
 select count(1)
 from dbo.Workers (nolock)
 where name = @workerName
-and date >= dateadd(minute, -1, getdate())
-and host != @host";
+and date >= dateadd(millisecond, -@statusTimeout, getdate())";
 
             using var connection = GetConnection();
             return connection
-                .QueryFirst<int>(sql, new { workerName, host = Environment.MachineName });
+                .QueryFirst<int>(sql, new { workerName, statusTimeout });
         }
 
-        internal WorkerStatus SetStatus(WorkerStatus status)
+        public WorkerStatus SetStatus(WorkerStatus status)
         {
             const string sql = @"
 update dbo.Workers
-set date = @date, settings = @settings, active = @active
+set date = @date, active = @active
 where id = @id
     or (host = @host and name = @name)
 if @@ROWCOUNT = 0
