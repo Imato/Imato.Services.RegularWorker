@@ -104,4 +104,13 @@ app.StartServices();
 await app.RunAsync();
 ```
 
+or shortly configure workers
+```csharp
+// Program.cs
+using Imato.Services.RegularWorker;
+
+var appBuilder = Host.CreateDefaultBuilder(args);
+appBuilder.ConfigureWorkers();
+```
+
 

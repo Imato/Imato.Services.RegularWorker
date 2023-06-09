@@ -4,9 +4,19 @@ namespace Imato.Services.RegularWorker
 {
     public class WorkerStatus
     {
+        public WorkerStatus()
+        { }
+
+        public WorkerStatus(string name)
+        {
+            Name = name;
+            Date = DateTime.Now;
+        }
+
         public int Id { get; set; }
         public string Name { get; set; } = "";
-        public string Host { get; set; } = "";
+        public string Host => Environment.MachineName;
+        public string AppName => Constants.AppName;
         public DateTime Date { get; set; }
         public bool Active { get; set; }
         public string Settings { get; set; } = "";

@@ -7,35 +7,52 @@ namespace Imato.Services.RegularWorker
 {
     public abstract class RegularWorker : BaseWorker
     {
+        protected DateTime LastExecute = DateTime.MinValue;
+
         protected RegularWorker(IServiceProvider provider) : base(provider)
         {
         }
 
         public override async Task StartAsync(CancellationToken token)
         {
-            if (!Settings().Enabled)
-            {
-                Logger.LogInformation("Worker is disabled");
-                return;
-            }
-
             if (Start())
             {
                 while (!token.IsCancellationRequested)
                 {
-                    var status = GetStatus();
-                    if (status.Active)
+                    await TryAsync(async () =>
                     {
-                        await TryAsync(async () => await ExecuteAsync(token));
-                        var wait = Settings().StartInterval
-                            - (int)(DateTime.Now - status.Date).TotalMilliseconds;
-                        if (wait > 0) await Task.Delay(wait);
-                    }
-                    else
-                    {
-                        Logger.LogDebug("Wait activation");
-                        await Task.Delay(Settings().StartInterval);
-                    }
+                        var status = GetStatus();
+
+                        if (status.Active)
+                        {
+                            if (LastExecute.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
+                            {
+                                LastExecute = DateTime.Now;
+                                await ExecuteAsync(token);
+                            }
+                        }
+                        else
+                        {
+                            Logger.LogDebug("Wait activation");
+                        }
+
+                        var waitTime = StatusTimeout;
+                        var t = (DateTime.Now - LastExecute).TotalMilliseconds;
+                        if (status.Active)
+                        {
+                            waitTime = t < int.MaxValue
+                                ? Settings.StartInterval - (int)t
+                                : 0;
+                            waitTime = waitTime < StatusTimeout
+                                ? waitTime
+                                : StatusTimeout;
+                        }
+
+                        if (waitTime > 0)
+                        {
+                            await Task.Delay(waitTime);
+                        }
+                    });
                 }
             }
         }

@@ -55,10 +55,13 @@ namespace Imato.Services.RegularWorker.Workers
                         StartWorker(worker, token);
                     }
 
-                    var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
-                    if (duration > StatusTimeout)
+                    if (worker.Status.Active)
                     {
-                        Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000} seconds");
+                        var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
+                        if (duration > worker.Settings.StartInterval + StatusTimeout)
+                        {
+                            Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N1} seconds");
+                        }
                     }
                 }
             }

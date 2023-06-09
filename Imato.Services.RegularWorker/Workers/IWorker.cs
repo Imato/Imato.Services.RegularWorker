@@ -13,5 +13,7 @@ namespace Imato.Services.RegularWorker
         bool Started { get; }
 
         WorkerStatus Status { get; }
+
+        WorkerSettings Settings { get; }
     }
 }

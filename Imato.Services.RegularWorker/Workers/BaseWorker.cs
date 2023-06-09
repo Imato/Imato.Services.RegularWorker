@@ -10,14 +10,12 @@ using System.Text.Json;
 
 namespace Imato.Services.RegularWorker
 {
-    public class BaseWorker : IHostedService, IWorker
+    public abstract class BaseWorker : IHostedService, IWorker
     {
         protected readonly ILogger Logger;
         protected readonly DbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
-
-        protected WorkerSettings _settings = new WorkerSettings();
         private WorkerStatus _status;
 
         public string Name { get; }
@@ -35,14 +33,8 @@ namespace Imato.Services.RegularWorker
             Db = GetService<DbContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
-            _status = new WorkerStatus
-            {
-                Name = Name,
-                Host = Environment.MachineName,
-                Date = DateTime.Now,
-                Settings = JsonSerializer.Serialize(_settings,
-                    Constants.JsonOptions)
-            };
+            _status = new WorkerStatus(Name);
+            _status = Db.GetStatus(_status) ?? _status;
         }
 
         protected void LogError(Exception ex)
@@ -71,39 +63,41 @@ namespace Imato.Services.RegularWorker
             var result = Db.IsDbActive();
             if (!result)
             {
-                Logger.LogInformation("Connection to DB is not active");
+                Logger.LogWarning("Connection to DB is not active");
                 return result;
             }
 
-            result = Settings().Enabled;
+            result = Settings.Enabled;
             if (!result) { return result; }
 
-            result = Settings().RunOn == RunOn.EveryWhere;
+            result = Settings.RunOn == RunOn.EveryWhere;
             if (result)
             {
                 Logger.LogInformation("Worker is active on each server");
                 return result;
             }
 
-            var isPrimaty = Db.IsPrimaryServer();
-            result = Settings().RunOn == RunOn.PrimaryServer && isPrimaty;
+            var isPrimaty = Db.IsMasterServer();
+            result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
                 Logger.LogInformation("Worker is active on primary server");
                 return result;
             }
 
-            var hosts = Db.GetHostCount(Name, StatusTimeout);
+            var hosts = Db.GetOtherHostCount(Name, Status.Host, StatusTimeout + 10000);
 
-            result = Settings().RunOn == RunOn.SecondaryServerFirst
-                && !isPrimaty && hosts <= 2;
+            result = Settings.RunOn == RunOn.SecondaryServerFirst
+                && !isPrimaty && hosts == 0;
             if (result)
             {
                 Logger.LogInformation("Worker is active on first secondary server");
                 return result;
             }
 
-            result = Settings().RunOn == RunOn.SecondaryServer
+            result =
+                (Settings.RunOn == RunOn.SecondaryServer
+                || Settings.RunOn == RunOn.SecondaryServerFirst)
                 && !isPrimaty;
             if (result)
             {
@@ -111,7 +105,7 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            if (hosts == 1)
+            if (hosts == 0)
             {
                 Logger.LogInformation("Worker is active on single server");
                 return true;
@@ -138,8 +132,12 @@ namespace Imato.Services.RegularWorker
             }
             if (!active)
             {
-                Logger.LogInformation("Worker is not active");
+                Logger.LogDebug("Worker is not active");
             }
+
+            _status.Settings = !string.IsNullOrEmpty(_status.Settings)
+                ? _status.Settings
+                : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
             _status = Db.SetStatus(_status);
 
             return _status;
@@ -161,7 +159,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual async Task StartAsync(CancellationToken token)
         {
-            if (!Settings().Enabled)
+            if (!Settings.Enabled)
             {
                 Logger.LogInformation("Worker is disabled");
                 return;
@@ -186,7 +184,6 @@ namespace Imato.Services.RegularWorker
                     {
                         _started = false;
                         _status.Active = false;
-                        _settings.Enabled = false;
                         Logger.LogInformation("Stop worker");
                     }
                 }
@@ -210,9 +207,9 @@ namespace Imato.Services.RegularWorker
             }
         }
 
-        public T Settings<T>()
+        public T? GetSettings<T>() where T : class
         {
-            T settings = default;
+            T? settings = default;
 
             var workersSettings = Configuration
                 .GetSection("Workers")
@@ -230,15 +227,10 @@ namespace Imato.Services.RegularWorker
                 settings = JsonSerializer.Deserialize<T>(dbSettings, Constants.JsonOptions) ?? settings;
             }
 
-            return settings
-                ?? throw new ArgumentException($"Cannot find settings for {Name}");
+            return settings;
         }
 
-        public WorkerSettings Settings()
-        {
-            _settings = Settings<WorkerSettings>();
-            return _settings;
-        }
+        public WorkerSettings Settings => GetSettings<WorkerSettings>() ?? new WorkerSettings();
 
         protected T GetService<T>() where T : class
         {

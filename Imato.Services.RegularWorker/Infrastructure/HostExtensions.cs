@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,6 +38,56 @@ namespace Imato.Services.RegularWorker
                         .Bind(options);
                 })
             );
+            return builder;
+        }
+
+        public static IHostBuilder ConfigureWorkers(
+            this IHostBuilder builder,
+            string appName = "",
+            string arguments = "")
+        {
+            Constants.AppArguments = arguments;
+            Constants.AppName = appName;
+
+            builder.ConfigureServices(services =>
+            {
+                var contextType = Assembly.GetEntryAssembly().GetTypes()
+                    .Where(x => x.IsClass
+                        && x.IsSubclassOf(typeof(Dapper.DbContext.DbContext)))
+                    .FirstOrDefault();
+                if (contextType != null)
+                {
+                    services.AddSingleton(typeof(DbContext), contextType);
+                }
+                else
+                {
+                    services.AddSingleton(typeof(Dapper.DbContext.DbContext));
+                }
+            });
+            builder.ConfigureDbLogger();
+            builder.AddWorkers();
+            return builder;
+        }
+
+        public static IHostBuilder AddWorkers(this IHostBuilder builder)
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IWorker, LogWorker>();
+
+                foreach (var worker in Assembly.GetEntryAssembly().DefinedTypes
+                                        .Where(x => x.IsClass
+                                            && !x.IsInterface
+                                            && !x.IsAbstract
+                                            && x.ImplementedInterfaces.Contains(typeof(IWorker))))
+                {
+                    if (worker.AsType() != typeof(WorkersWatcher))
+                    {
+                        services.AddSingleton(typeof(IWorker), worker.AsType());
+                    }
+                }
+            });
+
             return builder;
         }
 

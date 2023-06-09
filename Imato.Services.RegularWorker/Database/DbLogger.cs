@@ -29,7 +29,7 @@ values (@date, @user, @level, @source, @message, @server);";
             var assembly = Assembly.GetEntryAssembly().GetName().Name;
             category = category.Replace($"{assembly}.", "");
             this.category = $"{assembly}: {category}";
-            if (options != null)
+            if (!string.IsNullOrEmpty(options?.ConnectionString))
             {
                 connection = new SqlConnection(options.ConnectionString);
                 sqlTable = options.Table;
@@ -62,8 +62,6 @@ values (@date, @user, @level, @source, @message, @server);";
                 switch (logLevel)
                 {
                     case LogLevel.Trace:
-                        log.Level = 0;
-                        break;
 
                     case LogLevel.Debug:
                         log.Level = 0;
@@ -78,8 +76,6 @@ values (@date, @user, @level, @source, @message, @server);";
                         break;
 
                     case LogLevel.Error:
-                        log.Level = 3;
-                        break;
 
                     case LogLevel.Critical:
                         log.Level = 3;
@@ -90,7 +86,7 @@ values (@date, @user, @level, @source, @message, @server);";
                         break;
                 }
 
-                if (log.Level == 3)
+                if (log.Level >= 2)
                 {
                     connection.Execute(sqlSaveLog, log);
                 }
