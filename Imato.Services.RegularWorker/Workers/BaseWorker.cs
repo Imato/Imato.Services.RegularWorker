@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Linq;
 
 namespace Imato.Services.RegularWorker
 {
@@ -236,6 +237,11 @@ namespace Imato.Services.RegularWorker
         {
             return provider.GetService<T>()
                 ?? throw new ArgumentException($"Not registered in DI type {typeof(T).Name}");
+        }
+
+        protected IEnumerable<T> GetServices<T>(Func<T, bool> searchFunc) where T : class
+        {
+            return provider.GetServices<T>().Where(x => searchFunc(x));
         }
 
         public virtual Task ExecuteAsync(CancellationToken token)

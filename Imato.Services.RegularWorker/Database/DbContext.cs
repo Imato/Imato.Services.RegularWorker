@@ -99,7 +99,7 @@ and active = 1"
                 Text = @"
 update dbo.Workers
 set date = @date, active = @active
-where id = @id
+where (@id > 0 and id = @id)
     or (host = @host and name = @name and appName = @appName)
 if @@ROWCOUNT = 0
 insert into dbo.Workers
@@ -108,7 +108,7 @@ values
 (@name, @host, @appName, @date, @settings, @active);
 select top 1 *
 from dbo.Workers
-where id = @id
+where (@id > 0 and id = @id)
 or (host = @host and name = @name and appName = @appName);"
             });
         }
