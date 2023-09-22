@@ -60,7 +60,7 @@ namespace Imato.Services.RegularWorker.Workers
                         var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
                         if (duration > worker.Settings.StartInterval + StatusTimeout)
                         {
-                            Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N1} seconds");
+                            Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N0} seconds");
                         }
                     }
                 }

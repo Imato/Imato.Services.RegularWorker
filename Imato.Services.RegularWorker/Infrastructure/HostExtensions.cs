@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -16,6 +17,29 @@ namespace Imato.Services.RegularWorker
     {
         private static CancellationTokenSource _startToken = new CancellationTokenSource();
         private static WorkersWatcher _watcher = null!;
+
+        private static IEnumerable<Assembly> GetAssemblies()
+        {
+            yield return Assembly.GetExecutingAssembly();
+            var path = Directory.GetCurrentDirectory();
+            foreach (var file in Directory.GetFiles(path, "*.dll"))
+            {
+                Assembly? assembly;
+                try
+                {
+                    assembly = Assembly.LoadFrom(file);
+                }
+                catch
+                {
+                    assembly = null;
+                }
+
+                if (assembly != null)
+                {
+                    yield return assembly;
+                }
+            }
+        }
 
         public static ILoggingBuilder AddDbLoggerConfig(
             this ILoggingBuilder builder,
@@ -41,6 +65,37 @@ namespace Imato.Services.RegularWorker
             return builder;
         }
 
+        public static IHostBuilder AddDbContext(this IHostBuilder builder,
+            DbContext? context = null)
+        {
+            if (context != null)
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.AddSingleton(context);
+                });
+            }
+            else
+            {
+                foreach (var assembly in GetAssemblies())
+                {
+                    var contextType = assembly.GetTypes()
+                        .Where(x => x.IsClass
+                            && x.IsSubclassOf(typeof(Dapper.DbContext.DbContext)))
+                        .FirstOrDefault();
+                    if (contextType != null)
+                    {
+                        builder.ConfigureServices(services =>
+                        {
+                            services.AddSingleton(typeof(DbContext), contextType);
+                        });
+                        break;
+                    }
+                }
+            }
+            return builder;
+        }
+
         public static IHostBuilder ConfigureWorkers(
             this IHostBuilder builder,
             string appName = "",
@@ -49,21 +104,7 @@ namespace Imato.Services.RegularWorker
             Constants.AppArguments = arguments;
             Constants.AppName = appName;
 
-            builder.ConfigureServices(services =>
-            {
-                var contextType = Assembly.GetEntryAssembly().GetTypes()
-                    .Where(x => x.IsClass
-                        && x.IsSubclassOf(typeof(Dapper.DbContext.DbContext)))
-                    .FirstOrDefault();
-                if (contextType != null)
-                {
-                    services.AddSingleton(typeof(DbContext), contextType);
-                }
-                else
-                {
-                    services.AddSingleton(typeof(Dapper.DbContext.DbContext));
-                }
-            });
+            builder.AddDbContext();
             builder.ConfigureDbLogger();
             builder.AddWorkers();
             return builder;
@@ -75,15 +116,18 @@ namespace Imato.Services.RegularWorker
             {
                 services.AddSingleton<IWorker, LogWorker>();
 
-                foreach (var worker in Assembly.GetEntryAssembly().DefinedTypes
-                                        .Where(x => x.IsClass
-                                            && !x.IsInterface
-                                            && !x.IsAbstract
-                                            && x.ImplementedInterfaces.Contains(typeof(IWorker))))
+                foreach (var assembly in GetAssemblies())
                 {
-                    if (worker.AsType() != typeof(WorkersWatcher))
+                    foreach (var worker in assembly.DefinedTypes
+                                            .Where(x => x.IsClass
+                                                && !x.IsInterface
+                                                && !x.IsAbstract
+                                                && x.ImplementedInterfaces.Contains(typeof(IWorker))))
                     {
-                        services.AddSingleton(typeof(IWorker), worker.AsType());
+                        if (worker.AsType() != typeof(WorkersWatcher))
+                        {
+                            services.AddSingleton(typeof(IWorker), worker.AsType());
+                        }
                     }
                 }
             });

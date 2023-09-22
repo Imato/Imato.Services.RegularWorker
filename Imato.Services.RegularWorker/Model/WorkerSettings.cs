@@ -1,6 +1,6 @@
 ﻿namespace Imato.Services.RegularWorker
 {
-    public class WorkerSettings
+    public class WorkerSettings : AppSettings
     {
         /// <summary>
         /// Where worker can be started
@@ -19,7 +19,7 @@
             var o = obj as WorkerSettings;
             if (o == null) return false;
             return o.Enabled == Enabled
-                && o.RunOn == RunOn.EveryWhere
+                && o.RunOn == RunOn
                 && o.StartInterval == StartInterval;
         }
     }

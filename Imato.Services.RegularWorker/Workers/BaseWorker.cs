@@ -74,7 +74,7 @@ namespace Imato.Services.RegularWorker
             result = Settings.RunOn == RunOn.EveryWhere;
             if (result)
             {
-                Logger.LogInformation("Worker is active on each server");
+                Logger.LogDebug("Worker is active on each server");
                 return result;
             }
 
@@ -82,7 +82,7 @@ namespace Imato.Services.RegularWorker
             result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
-                Logger.LogInformation("Worker is active on primary server");
+                Logger.LogDebug("Worker is active on primary server");
                 return result;
             }
 
@@ -92,7 +92,7 @@ namespace Imato.Services.RegularWorker
                 && !isPrimaty && hosts == 0;
             if (result)
             {
-                Logger.LogInformation("Worker is active on first secondary server");
+                Logger.LogDebug("Worker is active on first secondary server");
                 return result;
             }
 
@@ -102,13 +102,13 @@ namespace Imato.Services.RegularWorker
                 && !isPrimaty;
             if (result)
             {
-                Logger.LogInformation("Worker is active on secondary server");
+                Logger.LogDebug("Worker is active on secondary server");
                 return result;
             }
 
             if (hosts == 0)
             {
-                Logger.LogInformation("Worker is active on single server");
+                Logger.LogDebug("Worker is active on single server");
                 return true;
             }
 
@@ -246,7 +246,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task ExecuteAsync(CancellationToken token)
         {
-            Logger.LogInformation("Execute worker");
+            Logger.LogDebug("Execute worker");
             return Task.CompletedTask;
         }
     }
