@@ -18,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>2.12.0</Version>
+		<Version>2.12.2</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -33,12 +33,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Imato.Dapper.DbContext" Version="1.2.0" />
+		<PackageReference Include="Imato.Dapper.DbContext" Version="1.3.0" />
 		<PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
-		<PackageReference Include="Dapper" Version="2.0.123" />
+		<PackageReference Include="Dapper" Version="2.1.11" />
 		<PackageReference Include="Dapper.Contrib" Version="2.0.78" />
 	</ItemGroup>
 

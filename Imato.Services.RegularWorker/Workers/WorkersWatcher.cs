@@ -41,6 +41,7 @@ namespace Imato.Services.RegularWorker.Workers
                 {
                     Logger.LogDebug($"First start {worker.Name}");
                     StartWorker(worker, token);
+                    continue;
                 }
 
                 if (_tasks.ContainsKey(worker.Name))
@@ -54,15 +55,25 @@ namespace Imato.Services.RegularWorker.Workers
                         _tasks.Remove(worker.Name);
                         StartWorker(worker, token);
                     }
+                }
 
-                    if (worker.Status.Active)
-                    {
-                        var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
-                        if (duration > worker.Settings.StartInterval + StatusTimeout)
-                        {
-                            Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N0} seconds");
-                        }
-                    }
+                Monitor(worker);
+            }
+        }
+
+        private void Monitor(IWorker worker)
+        {
+            if (!_tasks.ContainsKey(worker.Name))
+            {
+                Logger.LogError($"Worker {worker.Name} is not running!");
+            }
+
+            if (worker.Status.Active)
+            {
+                var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
+                if (duration > worker.Settings.StartInterval + StatusTimeout)
+                {
+                    Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N0} seconds");
                 }
             }
         }
