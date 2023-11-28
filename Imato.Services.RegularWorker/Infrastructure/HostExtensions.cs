@@ -5,11 +5,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Dapper;
 
 namespace Imato.Services.RegularWorker
 {
@@ -20,11 +22,11 @@ namespace Imato.Services.RegularWorker
 
         private static IEnumerable<Assembly> GetAssemblies()
         {
-            yield return Assembly.GetExecutingAssembly();
-            var path = Directory.GetCurrentDirectory();
+            var assembly = Assembly.GetExecutingAssembly();
+            yield return assembly;
+            var path = Path.GetDirectoryName(assembly.Location);
             foreach (var file in Directory.GetFiles(path, "*.dll"))
             {
-                Assembly? assembly;
                 try
                 {
                     assembly = Assembly.LoadFrom(file);
@@ -37,6 +39,7 @@ namespace Imato.Services.RegularWorker
                 if (assembly != null)
                 {
                     yield return assembly;
+                    assembly = null;
                 }
             }
         }
@@ -47,6 +50,7 @@ namespace Imato.Services.RegularWorker
         {
             builder.Services.AddSingleton<ILoggerProvider, DbLoggerProvider>();
             builder.Services.Configure(configure);
+            SqlMapper.AddTypeMap(typeof(LogLevel), DbType.String);
             return builder;
         }
 
@@ -66,32 +70,64 @@ namespace Imato.Services.RegularWorker
         }
 
         public static IHostBuilder AddDbContext(this IHostBuilder builder,
-            DbContext? context = null)
+            Type contextType)
         {
-            if (context != null)
+            var wt = typeof(WorkersDbContext);
+
+            if (contextType != null
+                && contextType.IsSubclassOf(wt))
             {
                 builder.ConfigureServices(services =>
                 {
-                    services.AddSingleton(context);
+                    if (services.Any(x => x.ServiceType == wt))
+                    {
+                        services.Remove(new ServiceDescriptor(wt,
+                            ServiceLifetime.Singleton));
+                    }
+
+                    services.AddSingleton(wt, contextType);
                 });
             }
-            else
+
+            return builder;
+        }
+
+        public static IHostBuilder AddDbContext(this IHostBuilder builder)
+        {
+            var wt = typeof(WorkersDbContext);
+
+            foreach (var assembly in GetAssemblies())
             {
-                foreach (var assembly in GetAssemblies())
+                try
                 {
-                    var contextType = assembly.GetTypes()
-                        .Where(x => x.IsClass
-                            && x.IsSubclassOf(typeof(Dapper.DbContext.DbContext)))
-                        .FirstOrDefault();
-                    if (contextType != null)
+                    if (assembly != null)
                     {
-                        builder.ConfigureServices(services =>
+                        var ct = assembly
+                            .GetTypes()
+                            .Where(x => x.IsClass
+                                && !x.IsInterface
+                                && !x.IsAbstract
+                                && (x == wt))
+                            .FirstOrDefault();
+                        if (ct != null)
                         {
-                            services.AddSingleton(typeof(DbContext), contextType);
-                        });
-                        break;
+                            builder.AddDbContext(ct);
+                        }
+
+                        ct = assembly
+                            .GetTypes()
+                            .Where(x => x.IsClass
+                                && !x.IsInterface
+                                && !x.IsAbstract
+                                && (x.IsSubclassOf(wt)))
+                            .FirstOrDefault();
+                        if (ct != null)
+                        {
+                            builder.AddDbContext(ct);
+                        }
                     }
                 }
+                catch { }
             }
             return builder;
         }
@@ -110,25 +146,41 @@ namespace Imato.Services.RegularWorker
             return builder;
         }
 
+        public static IHostBuilder ConfigureWorkers(
+            this IHostBuilder builder,
+            string[]? args = null)
+        {
+            return ConfigureWorkers(builder,
+                arguments: string.Join(";", args ?? Array.Empty<string>()));
+        }
+
         public static IHostBuilder AddWorkers(this IHostBuilder builder)
         {
             builder.ConfigureServices(services =>
             {
-                services.AddSingleton<IWorker, LogWorker>();
-
                 foreach (var assembly in GetAssemblies())
                 {
-                    foreach (var worker in assembly.DefinedTypes
-                                            .Where(x => x.IsClass
-                                                && !x.IsInterface
-                                                && !x.IsAbstract
-                                                && x.ImplementedInterfaces.Contains(typeof(IWorker))))
+                    try
                     {
-                        if (worker.AsType() != typeof(WorkersWatcher))
+                        if (assembly != null)
                         {
-                            services.AddSingleton(typeof(IWorker), worker.AsType());
+                            foreach (var worker in
+                                assembly.DefinedTypes
+                                        .Where(x => x.IsClass
+                                            && !x.IsInterface
+                                            && !x.IsAbstract
+                                            && x.ImplementedInterfaces.Contains(typeof(IWorker)))
+                                        .Select(x => x.AsType()))
+                            {
+                                if (worker != typeof(WorkersWatcher)
+                                    && !services.Any(x => x.ImplementationType == worker))
+                                {
+                                    services.AddSingleton(typeof(IWorker), worker);
+                                }
+                            }
                         }
                     }
+                    catch { }
                 }
             });
 
@@ -148,8 +200,13 @@ namespace Imato.Services.RegularWorker
                             && x.GetType().Name != "WorkersWatcher");
         }
 
-        public static void StartWorkers(this IHost app, string? workerName = null)
+        public static void StartWorkers(this IHost app,
+            string[]? args = null)
         {
+            var workerName = args
+                .Where(x => x.StartsWith("Worker="))
+                .FirstOrDefault()
+                ?.Split('=')[1];
             _watcher = new WorkersWatcher(app, workerName);
             Task.Factory
                 .StartNew(() => _watcher.StartAsync(_startToken.Token),
@@ -171,6 +228,21 @@ namespace Imato.Services.RegularWorker
             var service = scope.ServiceProvider.GetRequiredService<T>();
             if (service != null) return service;
             throw new TypeAccessException($"Unknown service {typeof(T).Name}");
+        }
+
+        public static async Task StartAppAsync(this IHost app,
+            string[]? args = null)
+        {
+            app.StartWorkers(args);
+            var workers = app.GetWorkers();
+            await app.RunAsync()
+                .ContinueWith(async (_) =>
+                {
+                    foreach (var w in workers)
+                    {
+                        await w.StopAsync(CancellationToken.None);
+                    }
+                });
         }
     }
 }

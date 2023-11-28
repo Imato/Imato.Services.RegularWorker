@@ -14,7 +14,7 @@ namespace Imato.Services.RegularWorker
     public abstract class BaseWorker : IHostedService, IWorker
     {
         protected readonly ILogger Logger;
-        protected readonly DbContext Db;
+        protected readonly WorkersDbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
         private WorkerStatus _status;
@@ -31,7 +31,7 @@ namespace Imato.Services.RegularWorker
         {
             this.provider = provider;
             Logger = GetService<ILoggerFactory>().CreateLogger(GetType());
-            Db = GetService<DbContext>();
+            Db = GetService<WorkersDbContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
             _status = new WorkerStatus(Name);
@@ -235,8 +235,7 @@ namespace Imato.Services.RegularWorker
 
         protected T GetService<T>() where T : class
         {
-            return provider.GetService<T>()
-                ?? throw new ArgumentException($"Not registered in DI type {typeof(T).Name}");
+            return provider.GetRequiredService<T>();
         }
 
         protected IEnumerable<T> GetServices<T>(Func<T, bool> searchFunc) where T : class

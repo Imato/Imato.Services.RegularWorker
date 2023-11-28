@@ -24,11 +24,29 @@
         }
     }
 
+    /// <summary>
+    /// Start worker on server
+    /// </summary>
     public enum RunOn
     {
+        /// <summary>
+        /// Each, EveryWhere
+        /// </summary>
         EveryWhere,
+
+        /// <summary>
+        /// Primary, master (DB) server
+        /// </summary>
         PrimaryServer,
+
+        /// <summary>
+        /// Secondary, slave (DB) server
+        /// </summary>
         SecondaryServer,
+
+        /// <summary>
+        /// First secondary, slave (DB) server
+        /// </summary>
         SecondaryServerFirst
     }
 }

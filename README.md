@@ -3,6 +3,8 @@
 ### Create long running services and workers
 
 1. Create new worker
+ Override ExecuteAsync in RegularWorker
+
 ```csharp
 // Worker.cs
 using Imato.Services.RegularWorker;
@@ -23,6 +25,16 @@ public class Worker : RegularWorker
 ```
 
 2. Add worker to DI
+Simple. All your workers started automatically.
+```csharp  
+// Program.cs
+using Imato.Services.RegularWorker;
+
+var appBuilder = Host.CreateDefaultBuilder(args);
+appBuilder.ConfigureWorkers(args);
+```
+
+Or manualy
 ```csharp  
 // Program.cs
 using Imato.Services.RegularWorker;
@@ -34,15 +46,24 @@ var appBuilder = Host.CreateDefaultBuilder(args)
     })
 ```
 
-3. Start all worker
+Start one worker as microservise from all your workers pool.
+```cmd
+>myworker.exe 
+```
+
+3. Start workers
+
 ```csharp
 // Program.cs
 using Imato.Services.RegularWorker;
 
 var app = appBuilder.Build();
-app.StartHostedServices();
-await app.RunAsync();
+// All 
+app.StartAppAsync();
+// Or single worker 
+await app.StartAppAsync(");
 ```
+
 
 4. Configure worker  
 appsettings.Example.json
@@ -60,6 +81,9 @@ appsettings.Example.json
 RunOn: PrimaryServer, SecondaryServer, SecondaryServerFirst, EveryWhere.
 
 Or configure throw field settings in Workers DB table.
+
+```sql
+```
 
 ### Using Log table in MS SQL server
 
@@ -113,4 +137,9 @@ var appBuilder = Host.CreateDefaultBuilder(args);
 appBuilder.ConfigureWorkers();
 ```
 
+### Monitoring
+View actual workers status in different apps and hosts
+```sql
+select id, name, host, appName, date, settings, active from dbo.workers
+```
 

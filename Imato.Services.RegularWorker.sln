@@ -5,10 +5,7 @@ VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Imato.Services.RegularWorker", "Imato.Services.RegularWorker\Imato.Services.RegularWorker.csproj", "{10163A1C-1113-403A-B9D8-CB3173CA4637}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1E099715-C626-42C4-8746-6C4E2A54C766}"
-	ProjectSection(SolutionItems) = preProject
-		README.md = README.md
-	EndProjectSection
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Imato.Services.RegularWorker.Tests", "Imato.Services.RegularWorker.Tests\Imato.Services.RegularWorker.Tests.csproj", "{45C3723D-BA59-4A53-AA7E-5949136FAEF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +17,10 @@ Global
 		{10163A1C-1113-403A-B9D8-CB3173CA4637}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10163A1C-1113-403A-B9D8-CB3173CA4637}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10163A1C-1113-403A-B9D8-CB3173CA4637}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45C3723D-BA59-4A53-AA7E-5949136FAEF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45C3723D-BA59-4A53-AA7E-5949136FAEF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45C3723D-BA59-4A53-AA7E-5949136FAEF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45C3723D-BA59-4A53-AA7E-5949136FAEF8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

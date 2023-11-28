@@ -1,26 +1,27 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using System.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Options;
 using System;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Data;
+using Imato.Dapper.DbContext;
+using System.Collections.Generic;
 
 namespace Imato.Services.RegularWorker
 {
     public class DbLogger : ILogger
     {
-        private readonly SqlConnection? connection;
+        private readonly IDbConnection connection;
         private readonly string category;
         private static readonly ConcurrentQueue<DbLogEvent> queue = new ConcurrentQueue<DbLogEvent>();
 
         private readonly string? sqlTable, sqlColumns;
 
-        private string sqlSaveLog => $"insert into {sqlTable} ({sqlColumns})" + @"
-values (@date, @user, @level, @source, @message, @server);";
-
-        public DbLogger(string category, IOptions<DbLoggerOptions?> options) : this(category, options?.Value)
+        public DbLogger(string category,
+            IOptions<DbLoggerOptions?> options)
+            : this(category, options?.Value)
         {
         }
 
@@ -29,9 +30,11 @@ values (@date, @user, @level, @source, @message, @server);";
             var assembly = Assembly.GetEntryAssembly().GetName().Name;
             category = category.Replace($"{assembly}.", "");
             this.category = $"{assembly}: {category}";
-            if (!string.IsNullOrEmpty(options?.ConnectionString))
+            if (options != null && !string.IsNullOrEmpty(options?.ConnectionString))
             {
-                connection = new SqlConnection(options.ConnectionString);
+                var user = AppEnvironment.GetVariable(options?.Environment?.DbUser);
+                var password = AppEnvironment.GetVariable(options?.Environment?.DbUserPassword);
+                connection = DbContext.Create(options.ConnectionString, "", user, password);
                 sqlTable = options.Table;
                 sqlColumns = options.Columns;
             }
@@ -86,14 +89,7 @@ values (@date, @user, @level, @source, @message, @server);";
                         break;
                 }
 
-                if (log.Level >= 2)
-                {
-                    connection.Execute(sqlSaveLog, log);
-                }
-                else
-                {
-                    queue.Enqueue(log);
-                }
+                queue.Enqueue(log);
             }
         }
 
@@ -103,10 +99,13 @@ values (@date, @user, @level, @source, @message, @server);";
             {
                 try
                 {
+                    var logs = new List<DbLogEvent>(queue.Count);
                     while (queue.TryDequeue(out var log) && log != null)
                     {
-                        await connection.ExecuteAsync(sqlSaveLog, log);
+                        logs.Add(log);
                     }
+
+                    await connection.BulkInsertAsync(logs, sqlTable, sqlColumns?.Split(","));
                 }
                 catch { }
             }

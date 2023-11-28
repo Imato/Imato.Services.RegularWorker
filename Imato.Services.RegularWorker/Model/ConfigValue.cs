@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System;
+using System.Text.Json;
 
 namespace Imato.Services.RegularWorker
 {
@@ -14,6 +15,12 @@ namespace Imato.Services.RegularWorker
                 return default;
 
             return JsonSerializer.Deserialize<T>(Value, Constants.JsonOptions);
+        }
+
+        public T GetRequredValue<T>() where T : class
+        {
+            return GetValue<T>()
+                ?? throw new ApplicationException("Config value is empty");
         }
     }
 }

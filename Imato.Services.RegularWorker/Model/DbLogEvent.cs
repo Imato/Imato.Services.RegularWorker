@@ -9,6 +9,7 @@ namespace Imato.Services.RegularWorker
         public byte Level { get; set; } = 1;
         public string Source { get; set; } = "";
         public string Message { get; set; } = "";
-        public string Server { get; set; } = Environment.MachineName;
+        public string Server => Environment.MachineName;
+        public string App => Constants.AppName;
     }
 }
