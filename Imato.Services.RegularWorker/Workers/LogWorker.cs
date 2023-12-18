@@ -18,7 +18,8 @@ namespace Imato.Services.RegularWorker
         public override async Task ExecuteAsync(CancellationToken token)
         {
             await base.ExecuteAsync(token);
-            await dbLogger.Save();
+
+            await LogDuration(() => dbLogger.Save(), "dbLogger.Save");
         }
     }
 }

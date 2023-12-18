@@ -248,5 +248,43 @@ namespace Imato.Services.RegularWorker
             Logger.LogDebug("Execute worker");
             return Task.CompletedTask;
         }
+
+        protected async Task<T> LogDuration<T>(Func<Task<T>> task,
+            string taskName = "",
+            int maxDuration = 10_000)
+        {
+            var now = DateTime.UtcNow;
+            if (Logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                Logger?.LogDebug($"Start {taskName}");
+            }
+            var result = await task();
+
+            var time = (DateTime.UtcNow - now).TotalMilliseconds;
+            if (time > maxDuration)
+            {
+                Logger?.LogWarning($"{taskName} max duration {maxDuration} exceeded - {time}");
+            }
+
+            if (Logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                Logger?.LogDebug($"End {taskName}. Duration: {time}");
+            }
+
+            return result;
+        }
+
+        protected async Task LogDuration(Func<Task> task,
+            string taskName = "",
+            int maxDuration = 10_000)
+        {
+            await LogDuration(
+                async () =>
+                {
+                    await task();
+                    return Task.FromResult(true);
+                },
+                taskName, maxDuration);
+        }
     }
 }

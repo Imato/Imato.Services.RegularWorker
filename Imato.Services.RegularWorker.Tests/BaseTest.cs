@@ -20,7 +20,7 @@ namespace Imato.Services.RegularWorker.Tests
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IConfiguration>(config);
-                //services.AddSingleton<WorkersDbContext>();
+                services.AddSingleton<WorkersDbContext>();
                 services.AddSingleton<DbLogger>();
             });
             builder.ConfigureLogging((_, logging) =>

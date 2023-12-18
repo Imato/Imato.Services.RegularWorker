@@ -25,7 +25,11 @@ namespace Imato.Services.RegularWorker.Workers
         public override async Task ExecuteAsync(CancellationToken token)
         {
             await base.ExecuteAsync(token);
+            await LogDuration(() => WorkAsync(token), "WorkAsync");
+        }
 
+        public async Task WorkAsync(CancellationToken token)
+        {
             if (_workers.Count == 0)
             {
                 foreach (var worker in _app.GetWorkers(_workerName))

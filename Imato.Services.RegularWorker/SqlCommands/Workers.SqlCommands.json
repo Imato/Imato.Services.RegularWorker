@@ -77,7 +77,7 @@
   {
     "name": "SetStatus",
     "contextVendor": "postgres",
-    "text": "insert into workers (name, host, appName, date, settings, active) values (@name, @host, @appName, @date, @settings, @active) on conflict(name) do update set \"date\" = @date, active = @active; select * from workers where (@id > 0 and id = @id) or (host = @host and name = @name and appName = @appName);"
+    "text": "select * from set_worker(@id, @name, @appName, @host, @active, @settings, @date);"
   },
   {
     "name": "GetLastLogs",
