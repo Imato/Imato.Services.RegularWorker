@@ -12,13 +12,12 @@ namespace Imato.Services.RegularWorker
         public LogWorker(IOptions<DbLoggerOptions> options, IServiceProvider provider)
             : base(provider)
         {
-            dbLogger = new DbLogger("LogWorker", options.Value);
+            dbLogger = new DbLogger(options.Value, "LogWorker");
         }
 
         public override async Task ExecuteAsync(CancellationToken token)
         {
             await base.ExecuteAsync(token);
-
             await LogDuration(() => dbLogger.Save(), "dbLogger.Save");
         }
     }

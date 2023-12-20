@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using Dapper;
 using Microsoft.Extensions.Options;
 using System;
 using System.Threading.Tasks;
@@ -8,6 +7,7 @@ using System.Reflection;
 using System.Data;
 using Imato.Dapper.DbContext;
 using System.Collections.Generic;
+using Dapper;
 
 namespace Imato.Services.RegularWorker
 {
@@ -19,13 +19,13 @@ namespace Imato.Services.RegularWorker
 
         private readonly string? sqlTable, sqlColumns;
 
-        public DbLogger(string category,
-            IOptions<DbLoggerOptions?> options)
-            : this(category, options?.Value)
+        public DbLogger(IOptions<DbLoggerOptions?> options,
+                string category = "")
+            : this(options?.Value, category)
         {
         }
 
-        public DbLogger(string category, DbLoggerOptions? options)
+        public DbLogger(DbLoggerOptions? options, string category = "")
         {
             var assembly = Assembly.GetEntryAssembly().GetName().Name;
             category = category.Replace($"{assembly}.", "");
@@ -38,6 +38,11 @@ namespace Imato.Services.RegularWorker
                 sqlTable = options.Table;
                 sqlColumns = options.Columns;
             }
+        }
+
+        public async Task DeleteAsync()
+        {
+            await connection.ExecuteAsync($"delete from {sqlTable}");
         }
 
         public IDisposable BeginScope<TState>(TState state)
@@ -56,7 +61,6 @@ namespace Imato.Services.RegularWorker
             {
                 var log = new DbLogEvent
                 {
-                    Date = DateTime.Now,
                     Source = category
                 };
 
@@ -124,7 +128,7 @@ namespace Imato.Services.RegularWorker
 
         public ILogger CreateLogger(string categoryName)
         {
-            return new DbLogger(categoryName, Options);
+            return new DbLogger(Options, categoryName);
         }
 
         public void Dispose()

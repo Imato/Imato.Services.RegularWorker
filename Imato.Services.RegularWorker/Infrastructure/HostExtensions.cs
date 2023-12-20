@@ -75,7 +75,7 @@ namespace Imato.Services.RegularWorker
             var wt = typeof(WorkersDbContext);
 
             if (contextType != null
-                && contextType.IsSubclassOf(wt))
+                && (contextType.IsSubclassOf(wt) || contextType == wt))
             {
                 builder.ConfigureServices(services =>
                 {
@@ -191,13 +191,9 @@ namespace Imato.Services.RegularWorker
             this IHost app,
             string? workerName = null)
         {
-            var provider = app.Services.CreateScope().ServiceProvider;
-            return provider
-                .GetServices<IWorker>()
-                .Where(x => (workerName == null
-                            || x.GetType().Name == workerName
-                            || x.GetType().Name == "LogWorker")
-                            && x.GetType().Name != "WorkersWatcher");
+            return app.Services.GetServices<IWorker>()
+                .Where(x => x.GetType().Name != "WorkersWatcher"
+                    && (x.GetType().Name == workerName || workerName == null));
         }
 
         public static void StartWorkers(this IHost app,

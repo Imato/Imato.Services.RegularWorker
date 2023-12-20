@@ -11,6 +11,8 @@ namespace Imato.Services.RegularWorker.Tests
         private static IServiceProvider _provider = null!;
         private static IHost _app = null!;
 
+        protected readonly WorkersDbContext Db;
+
         public BaseTest()
         {
             var config = new ConfigurationBuilder()
@@ -20,17 +22,18 @@ namespace Imato.Services.RegularWorker.Tests
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IConfiguration>(config);
-                services.AddSingleton<WorkersDbContext>();
                 services.AddSingleton<DbLogger>();
             });
             builder.ConfigureLogging((_, logging) =>
             {
                 logging.AddConsole();
+                logging.AddDebug();
             });
             builder.ConfigureWorkers(null);
-            builder.AddWorkers();
             _app = builder.Build();
             _provider = _app.Services.CreateScope().ServiceProvider;
+
+            Db = GetRequiredService<WorkersDbContext>();
         }
 
         public T GetRequiredService<T>() where T : class
@@ -40,7 +43,8 @@ namespace Imato.Services.RegularWorker.Tests
 
         public T GetWorker<T>() where T : class
         {
-            return _app.GetWorkers(typeof(T).Name).First() as T;
+            return _app.GetWorkers(typeof(T).Name).First() as T
+                ?? throw new ApplicationException($"Worker {typeof(T).Name} not registered");
         }
 
         public MethodInfo GetMethod<T>(string name,

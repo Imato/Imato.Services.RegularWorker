@@ -7,8 +7,6 @@ namespace Imato.Services.RegularWorker
 {
     public abstract class RegularWorker : BaseWorker
     {
-        protected DateTime LastExecute = DateTime.MinValue;
-
         protected RegularWorker(IServiceProvider provider) : base(provider)
         {
         }
@@ -25,19 +23,19 @@ namespace Imato.Services.RegularWorker
 
                         if (status.Active)
                         {
-                            if (LastExecute.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
+                            if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
                             {
-                                LastExecute = DateTime.Now;
                                 await ExecuteAsync(token);
+                                status.Executed = await Db.UpdateExecutedAsync(Status.Id);
                             }
                         }
                         else
                         {
-                            Logger.LogDebug("Wait activation");
+                            Logger?.LogDebug("Wait activation");
                         }
 
                         var waitTime = StatusTimeout;
-                        var t = (DateTime.Now - LastExecute).TotalMilliseconds;
+                        var t = (Status.Executed - Status.Date).TotalMilliseconds;
                         if (status.Active)
                         {
                             waitTime = t < int.MaxValue

@@ -10,7 +10,6 @@ namespace Imato.Services.RegularWorker
         public WorkerStatus(string name)
         {
             Name = name;
-            Date = DateTime.Now;
         }
 
         public int Id { get; set; }
@@ -18,7 +17,9 @@ namespace Imato.Services.RegularWorker
         public string Host => Environment.MachineName;
         public string AppName => Constants.AppName;
         public DateTime Date { get; set; }
+        public DateTime Executed { get; set; }
         public bool Active { get; set; }
         public string Settings { get; set; } = "";
+        public int Hosts { get; set; }
     }
 }

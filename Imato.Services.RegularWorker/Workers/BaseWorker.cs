@@ -17,15 +17,12 @@ namespace Imato.Services.RegularWorker
         protected readonly WorkersDbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
-        private WorkerStatus _status;
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
         public string Name { get; }
-        public WorkerStatus Status => _status;
 
-        protected readonly object locker = new object();
-        protected bool _started;
-
-        public bool Started => _started;
+        public bool Started { get; private set; }
+        public WorkerStatus Status { get; private set; }
 
         public BaseWorker(IServiceProvider provider)
         {
@@ -34,15 +31,15 @@ namespace Imato.Services.RegularWorker
             Db = GetService<WorkersDbContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
-            _status = new WorkerStatus(Name);
-            _status = Db.GetStatus(_status) ?? _status;
+            Status = new WorkerStatus(Name);
+            Status = Db.GetStatus(Status) ?? Status;
         }
 
         protected void LogError(Exception ex)
         {
             try
             {
-                Logger.LogError(ex.ToString());
+                Logger?.LogError(ex.ToString());
             }
             catch { }
         }
@@ -61,20 +58,20 @@ namespace Imato.Services.RegularWorker
 
         protected bool CanStart()
         {
-            var result = Db.IsDbActive();
+            var result = Settings.Enabled;
+            if (!result) { return result; }
+
+            result = Db.IsDbActive();
             if (!result)
             {
-                Logger.LogWarning("Connection to DB is not active");
+                Logger?.LogWarning("Connection to DB is not active");
                 return result;
             }
-
-            result = Settings.Enabled;
-            if (!result) { return result; }
 
             result = Settings.RunOn == RunOn.EveryWhere;
             if (result)
             {
-                Logger.LogDebug("Worker is active on each server");
+                Logger?.LogDebug("Worker is active on each server");
                 return result;
             }
 
@@ -82,17 +79,16 @@ namespace Imato.Services.RegularWorker
             result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
-                Logger.LogDebug("Worker is active on primary server");
+                Logger?.LogDebug("Worker is active on primary server");
                 return result;
             }
 
-            var hosts = Db.GetOtherHostCount(Name, Status.Host, StatusTimeout + 10000);
-
             result = Settings.RunOn == RunOn.SecondaryServerFirst
-                && !isPrimaty && hosts == 0;
+                && !isPrimaty
+                && Status.Hosts == 1;
             if (result)
             {
-                Logger.LogDebug("Worker is active on first secondary server");
+                Logger?.LogDebug("Worker is active on first secondary server");
                 return result;
             }
 
@@ -102,13 +98,14 @@ namespace Imato.Services.RegularWorker
                 && !isPrimaty;
             if (result)
             {
-                Logger.LogDebug("Worker is active on secondary server");
+                Logger?.LogDebug("Worker is active on secondary server");
                 return result;
             }
 
-            if (hosts == 0)
+            if (Settings.RunOn == RunOn.Single
+                && Status.Hosts == 1)
             {
-                Logger.LogDebug("Worker is active on single server");
+                Logger?.LogDebug("Worker is active on single server");
                 return true;
             }
 
@@ -117,52 +114,61 @@ namespace Imato.Services.RegularWorker
 
         protected WorkerStatus GetStatus()
         {
-            _status.Date = DateTime.Now;
-            var active = CanStart();
-            if (_status.Active != active)
+            _semaphore.Wait();
+
+            try
             {
-                _status.Active = active;
-                if (_status.Active)
+                var active = CanStart();
+                if (Status.Active != active)
                 {
-                    Logger.LogInformation("Activate worker");
+                    Status.Active = active;
+                    if (Status.Active)
+                    {
+                        Logger?.LogInformation("Activate worker");
+                    }
+                    else
+                    {
+                        Logger?.LogInformation("Deactivate worker");
+                    }
                 }
-                else
+                if (!active)
                 {
-                    Logger.LogInformation("Deactivate worker");
+                    Logger?.LogDebug("Worker is not active");
                 }
+
+                Status.Settings = !string.IsNullOrEmpty(Status.Settings)
+                    ? Status.Settings
+                    : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
+                Status = Db.SetStatus(Status);
             }
-            if (!active)
+            catch (Exception ex)
             {
-                Logger.LogDebug("Worker is not active");
+                Logger?.LogError(ex, "Set worker status");
             }
 
-            _status.Settings = !string.IsNullOrEmpty(_status.Settings)
-                ? _status.Settings
-                : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
-            _status = Db.SetStatus(_status);
+            _semaphore.Release();
 
-            return _status;
+            return Status;
         }
 
         protected bool Start()
         {
-            lock (locker)
+            _semaphore.Wait();
+            if (!Started)
             {
-                if (!_started)
-                {
-                    _started = true;
-                    Logger.LogInformation("Initialize worker");
-                }
+                Started = true;
+                Logger?.LogInformation("Initialize worker");
             }
+            _semaphore.Release();
 
-            return _started;
+            return Started;
         }
 
         public virtual async Task StartAsync(CancellationToken token)
         {
             if (!Settings.Enabled)
             {
-                Logger.LogInformation("Worker is disabled");
+                Logger?.LogInformation("Worker is disabled");
                 return;
             }
 
@@ -171,27 +177,22 @@ namespace Imato.Services.RegularWorker
                 if (Start() && GetStatus().Active)
                 {
                     await ExecuteAsync(token);
+                    Status.Executed = await Db.UpdateExecutedAsync(Status.Id);
                 }
             });
         }
 
-        public virtual Task StopAsync(CancellationToken cancellationToken)
+        public virtual async Task StopAsync(CancellationToken cancellationToken)
         {
-            try
+            await _semaphore.WaitAsync();
+            if (Started)
             {
-                lock (locker)
-                {
-                    if (_started)
-                    {
-                        _started = false;
-                        _status.Active = false;
-                        Logger.LogInformation("Stop worker");
-                    }
-                }
+                Started = false;
+                Status.Active = false;
+                Logger?.LogInformation("Stop worker");
+                Db.SetStatus(Status);
             }
-            catch { }
-
-            return Task.CompletedTask;
+            _semaphore.Release();
         }
 
         protected int StatusTimeout
@@ -221,7 +222,7 @@ namespace Imato.Services.RegularWorker
                 settings = workersSettings[Name];
             }
 
-            var dbSettings = _status.Settings;
+            var dbSettings = Status.Settings;
             if (!string.IsNullOrEmpty(dbSettings)
                 && dbSettings != JsonSerializer.Serialize(settings, Constants.JsonOptions))
             {
@@ -245,7 +246,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task ExecuteAsync(CancellationToken token)
         {
-            Logger.LogDebug("Execute worker");
+            Logger?.LogDebug("Execute worker");
             return Task.CompletedTask;
         }
 

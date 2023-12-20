@@ -32,12 +32,12 @@
   {
     "name": "CreateWorkersTable",
     "contextVendor": "mssql",
-    "text": "if object_id('dbo.Workers') is null begin create table dbo.Workers (id int not null identity(1, 1), name varchar(255) not null, host varchar(255) not null, appName varchar(512) not null default '', date datetime not null, settings varchar(2000) not null, active bit not null); alter table dbo.Workers add constraint Workers__PK primary key (id); alter table dbo.Workers add constraint Workers__UK unique (name, host, appName); end"
+    "text": "if object_id('dbo.Workers') is null begin create table dbo.Workers (id int not null identity(1, 1), name varchar(255) not null, host varchar(255) not null, appName varchar(512) not null default '', date datetime not null, settings varchar(2000) not null, active bit not null, executed datetime, hosts int); alter table dbo.Workers add constraint Workers__PK primary key (id); alter table dbo.Workers add constraint Workers__UK unique (name, host, appName); end"
   },
   {
     "name": "CreateWorkersTable",
     "contextVendor": "postgres",
-    "text": "create table if not exists workers (id int not null generated always as identity primary key, name varchar(255) not null, host varchar(255) not null, appName varchar(512) not null default '', date timestamp not null, settings json not null, active bool not null, unique (name, host, appName));"
+    "text": "create table if not exists workers (id int not null generated always as identity primary key, name varchar(255) not null, host varchar(255) not null, appName varchar(512) not null default '', date timestamp with time zone not null, settings text not null, active bool not null, executed timestamp with time zone, hosts int, unique (name, host, appName));"
   },
   {
     "name": "GetStatus",
@@ -72,21 +72,31 @@
   {
     "name": "SetStatus",
     "contextVendor": "mssql",
-    "text": "update dbo.Workers set date = @date, active = @active where (@id > 0 and id = @id) or (host = @host and name = @name and appName = @appName); if @@ROWCOUNT = 0 insert into dbo.Workers (name, host, appName, date, settings, active) values (@name, @host, @appName, @date, @settings, @active); select top 1 * from dbo.Workers where (@id > 0 and id = @id) or (host = @host and name = @name and appName = @appName);"
+    "text": "exec dbo.SetWorker @id, @name, @appName, @active, @host, @settings;"
   },
   {
     "name": "SetStatus",
     "contextVendor": "postgres",
-    "text": "select * from set_worker(@id, @name, @appName, @host, @active, @settings, @date);"
+    "text": "select * from set_worker(@id, @name, @appName, @host, @active, @settings);"
   },
   {
     "name": "GetLastLogs",
     "contextVendor": "mssql",
-    "text": "select top  * from {1} order by 1;"
+    "text": "select top {0} * from {1} order by 1;"
   },
   {
     "name": "GetLastLogs",
     "contextVendor": "postgres",
     "text": "select * from {1} order by 1 limit {0};"
+  },
+  {
+    "name": "UpdateExecuted",
+    "contextVendor": "mssql",
+    "text": "update workers set executed = getdate() where id = @id; select executed from workers where id = @id;"
+  },
+  {
+    "name": "UpdateExecuted",
+    "contextVendor": "postgres",
+    "text": "update workers set executed = current_timestamp where id = @id; select executed from workers where id = @id;"
   }
 ]

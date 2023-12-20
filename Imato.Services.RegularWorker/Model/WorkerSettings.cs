@@ -1,4 +1,6 @@
-﻿namespace Imato.Services.RegularWorker
+﻿using System;
+
+namespace Imato.Services.RegularWorker
 {
     public class WorkerSettings : AppSettings
     {
@@ -11,6 +13,8 @@
         /// Start every StartInterval milliseconds
         /// </summary>
         public int StartInterval { get; set; } = 5000;
+
+        public string[] ExecutionTimes { get; set; } = Array.Empty<string>();
 
         public bool Enabled { get; set; } = true;
 
@@ -30,23 +34,28 @@
     public enum RunOn
     {
         /// <summary>
-        /// Each, EveryWhere
+        /// Each, EveryWhere, Many servers
         /// </summary>
         EveryWhere,
 
         /// <summary>
-        /// Primary, master (DB) server
+        /// Primary, master (DB) server only
         /// </summary>
         PrimaryServer,
 
         /// <summary>
-        /// Secondary, slave (DB) server
+        /// Secondary, slave (DB) server only
         /// </summary>
         SecondaryServer,
 
         /// <summary>
-        /// First secondary, slave (DB) server
+        /// First secondary, slave (DB) server only
         /// </summary>
-        SecondaryServerFirst
+        SecondaryServerFirst,
+
+        /// <summary>
+        /// Start on one, first single server
+        /// </summary>
+        Single
     }
 }

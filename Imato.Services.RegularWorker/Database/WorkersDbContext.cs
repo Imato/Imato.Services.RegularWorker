@@ -105,5 +105,11 @@ namespace Imato.Services.RegularWorker
         {
             return await QueryAsync<DbLogEvent>("GetLastLogs", new object[] { count, Configuration.GetSection("Logging:DbLogger:Options:Table").Value ?? "" });
         }
+
+        public async Task<DateTime> UpdateExecutedAsync(int workerId)
+        {
+            return await QueryFirstAsync<DateTime>("UpdateExecuted",
+                new { id = workerId });
+        }
     }
 }
