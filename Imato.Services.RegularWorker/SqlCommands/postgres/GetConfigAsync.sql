@@ -1,0 +1,1 @@
+select id, name, value from {0} where name = @name limit 1;

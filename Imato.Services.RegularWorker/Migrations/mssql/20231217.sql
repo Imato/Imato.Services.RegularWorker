@@ -1,4 +1,4 @@
-alter table dbo.Workers 
+﻿alter table dbo.Workers 
 	add executed datetime, hosts int;
 go
 

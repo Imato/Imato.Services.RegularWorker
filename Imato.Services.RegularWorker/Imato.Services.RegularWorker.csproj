@@ -18,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>2.16.0</Version>
+		<Version>2.16.4</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -30,7 +30,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Content Include="SqlCommands\*">
+		<Content Include="SqlCommands\**">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<PackageCopyToOutput>true</PackageCopyToOutput>
 			<pack>true</pack>
@@ -38,16 +38,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Content Include="Migrations\*">
+		<Content Include="Migrations\**">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<PackageCopyToOutput>true</PackageCopyToOutput>
 			<pack>true</pack>
 		</Content>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Remove="Migrations\postgres_20231217.sql" />
-	  <None Remove="sqlcommands\mssql_20231217.sql" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -55,7 +50,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Imato.Dapper.DbContext" Version="1.6.0" />
+		<PackageReference Include="Imato.Dapper.DbContext" Version="1.7.1" />
 		<PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
@@ -68,6 +63,11 @@
 		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
+
+	<Target Name="CopyFiles" BeforeTargets="Build">
+		<Copy SourceFiles="@(SqlCommands)" DestinationFolder="$(TargetDir)/SqlCommands" />
+		<Copy SourceFiles="@(Migrations)" DestinationFolder="$(TargetDir)/Migrations" />
+	</Target>
 </Project>
 
 

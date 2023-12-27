@@ -257,7 +257,7 @@ namespace Imato.Services.RegularWorker
             var now = DateTime.UtcNow;
             if (Logger?.IsEnabled(LogLevel.Debug) == true)
             {
-                Logger?.LogDebug($"Start {taskName}");
+                Logger?.LogInformation($"Start {taskName}");
             }
             var result = await task();
 
@@ -269,7 +269,7 @@ namespace Imato.Services.RegularWorker
 
             if (Logger?.IsEnabled(LogLevel.Debug) == true)
             {
-                Logger?.LogDebug($"End {taskName}. Duration: {time}");
+                Logger?.LogInformation($"End {taskName}. Duration: {time}");
             }
 
             return result;

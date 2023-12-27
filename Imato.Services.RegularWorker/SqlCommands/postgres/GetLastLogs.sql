@@ -1,0 +1,1 @@
+select * from {1} order by 1 limit {0}

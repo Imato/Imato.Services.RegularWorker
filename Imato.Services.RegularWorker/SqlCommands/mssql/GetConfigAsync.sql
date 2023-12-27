@@ -1,0 +1,1 @@
+﻿select top 1 Id, Name, Value from {0} where Name = @name
