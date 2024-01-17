@@ -1,6 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Utilities;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Imato.Services.RegularWorker.Tests
 {
@@ -49,7 +47,7 @@ namespace Imato.Services.RegularWorker.Tests
         public async Task ExecutedAsync()
         {
             var token = new CancellationToken();
-            var logger = GetRequiredService<DbLogger>();
+            var logger = GetRequiredService<Imato.DbLogger.DbLogger>();
 
             await logger.DeleteAsync();
             await Db.TruncateAsync<DbWorkerStatus>();
@@ -67,7 +65,7 @@ namespace Imato.Services.RegularWorker.Tests
 
             await worker.StopAsync(token);
 
-            await Task.Delay(10_000);
+            await Task.Delay(15_000);
             var logs = (await Db?.GetLastLogsAsync(1000))
                 .Where(x => x.Source.Contains("TestWorker"))
                 .ToArray();
@@ -83,7 +81,7 @@ namespace Imato.Services.RegularWorker.Tests
             await ExecutedAsync();
 
             var token = new CancellationToken();
-            var logger = GetRequiredService<DbLogger>();
+            var logger = GetRequiredService<Imato.DbLogger.DbLogger>();
             await logger.DeleteAsync();
 
             Task.Run(() => worker.StartAsync(token));
@@ -94,7 +92,7 @@ namespace Imato.Services.RegularWorker.Tests
 
             await worker.StopAsync(token);
 
-            await Task.Delay(5_000);
+            await Task.Delay(15_000);
             var logs = (await Db?.GetLastLogsAsync(1000))
                 .Where(x => x.Source.Contains("TestWorker"))
                 .ToArray();

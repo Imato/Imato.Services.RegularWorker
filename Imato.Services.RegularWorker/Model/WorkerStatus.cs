@@ -20,6 +20,6 @@ namespace Imato.Services.RegularWorker
         public DateTime Executed { get; set; }
         public bool Active { get; set; }
         public string Settings { get; set; } = "";
-        public int Hosts { get; set; }
+        public int Hosts { get; set; } = 1;
     }
 }

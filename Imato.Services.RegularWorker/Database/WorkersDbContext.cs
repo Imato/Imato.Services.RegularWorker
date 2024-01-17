@@ -21,6 +21,12 @@ namespace Imato.Services.RegularWorker
         {
         }
 
+        public WorkersDbContext(string connectionString,
+            ILogger<WorkersDbContext> logger)
+            : base(connectionString, logger)
+        {
+        }
+
         protected string GetConfigTable()
         {
             if (ConfigurationTable == null)

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
+using Imato.Dapper.DbContext;
 
 namespace Imato.Services.RegularWorker
 {
@@ -32,7 +33,6 @@ namespace Imato.Services.RegularWorker
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
             Status = new WorkerStatus(Name);
-            Status = Db.GetStatus(Status) ?? Status;
         }
 
         protected void LogError(Exception ex)
@@ -58,7 +58,11 @@ namespace Imato.Services.RegularWorker
 
         protected bool CanStart()
         {
-            var result = Settings.Enabled;
+            var settings = Settings;
+            Logger?.LogDebug($"Settings: {StringExtensions.Serialize(settings)}");
+            Logger?.LogDebug($"Status: {StringExtensions.Serialize(Status)}");
+
+            var result = settings.Enabled;
             if (!result) { return result; }
 
             result = Db.IsDbActive();
@@ -68,7 +72,7 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            result = Settings.RunOn == RunOn.EveryWhere;
+            result = settings.RunOn == RunOn.EveryWhere;
             if (result)
             {
                 Logger?.LogDebug("Worker is active on each server");
@@ -76,25 +80,23 @@ namespace Imato.Services.RegularWorker
             }
 
             var isPrimaty = Db.IsMasterServer();
-            result = Settings.RunOn == RunOn.PrimaryServer && isPrimaty;
+            result = settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
                 Logger?.LogDebug("Worker is active on primary server");
                 return result;
             }
 
-            result = Settings.RunOn == RunOn.SecondaryServerFirst
+            result = settings.RunOn == RunOn.SecondaryServerFirst
                 && !isPrimaty
-                && Status.Hosts == 1;
+                && (Status.Hosts == 1 || Status.Active);
             if (result)
             {
                 Logger?.LogDebug("Worker is active on first secondary server");
                 return result;
             }
 
-            result =
-                (Settings.RunOn == RunOn.SecondaryServer
-                || Settings.RunOn == RunOn.SecondaryServerFirst)
+            result = settings.RunOn == RunOn.SecondaryServer
                 && !isPrimaty;
             if (result)
             {
@@ -102,8 +104,7 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            if (Settings.RunOn == RunOn.Single
-                && Status.Hosts == 1)
+            if (Status.Hosts <= 1)
             {
                 Logger?.LogDebug("Worker is active on single server");
                 return true;
@@ -118,6 +119,12 @@ namespace Imato.Services.RegularWorker
 
             try
             {
+                // First execute
+                if (Status.Date.Year < 2000)
+                {
+                    UpdateStatus();
+                }
+
                 var active = CanStart();
                 if (Status.Active != active)
                 {
@@ -136,10 +143,7 @@ namespace Imato.Services.RegularWorker
                     Logger?.LogDebug("Worker is not active");
                 }
 
-                Status.Settings = !string.IsNullOrEmpty(Status.Settings)
-                    ? Status.Settings
-                    : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
-                Status = Db.SetStatus(Status);
+                UpdateStatus();
             }
             catch (Exception ex)
             {
@@ -149,6 +153,14 @@ namespace Imato.Services.RegularWorker
             _semaphore.Release();
 
             return Status;
+        }
+
+        protected void UpdateStatus()
+        {
+            Status.Settings = !string.IsNullOrEmpty(Status.Settings)
+                    ? Status.Settings
+                    : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
+            Status = Db.SetStatus(Status);
         }
 
         protected bool Start()
@@ -200,7 +212,7 @@ namespace Imato.Services.RegularWorker
             get
             {
                 var value = Configuration
-                    .GetValue<string>("Workers.StatusTimeout");
+                    .GetValue<string>("Workers:StatusTimeout");
                 if (int.TryParse(value, out int result))
                 {
                     return result;

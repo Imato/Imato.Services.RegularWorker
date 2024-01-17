@@ -49,8 +49,8 @@ namespace Imato.Services.RegularWorker
                         if (Settings.ExecutionTimes == null
                             || Settings.ExecutionTimes.Length == 0)
                         {
-                            throw new ArgumentException(
-                                $"Empty {nameof(Settings.ExecutionTimes)})");
+                            Logger?.LogError($"Empty {nameof(Settings.ExecutionTimes)}) in logger settings");
+                            status.Active = false;
                         }
 
                         if (status.Active)

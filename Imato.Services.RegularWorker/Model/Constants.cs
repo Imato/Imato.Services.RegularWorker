@@ -26,7 +26,6 @@ namespace Imato.Services.RegularWorker
                 {
                     _appName =
                         AppDomain.CurrentDomain.BaseDirectory
-                        + Path.DirectorySeparatorChar
                         + Assembly.GetEntryAssembly().GetName().Name
                         + ":"
                         + Assembly.GetEntryAssembly().GetName().Version.ToString()

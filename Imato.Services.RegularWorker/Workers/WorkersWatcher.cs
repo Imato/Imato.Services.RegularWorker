@@ -45,6 +45,7 @@ namespace Imato.Services.RegularWorker.Workers
                 {
                     Logger.LogDebug($"First start {worker.Name}");
                     StartWorker(worker, token);
+                    await Task.Delay(456);
                     continue;
                 }
 

@@ -12,24 +12,26 @@
         [Test]
         public async Task ExecuteAsync()
         {
-            var logger = GetRequiredService<DbLogger>();
+            var logger = GetRequiredService<Imato.DbLogger.DbLogger>();
             await logger.DeleteAsync();
 
             await worker.ExecuteAsync(CancellationToken.None);
 
+            await Task.Delay(15_000);
             var logs = await Db?.GetLastLogsAsync();
             Assert.IsTrue(logs.Count() > 1);
+            Assert.IsTrue(logs.Any(x => x.Message == "Execute LogWorker"));
         }
 
         [Test]
         public async Task StartAsync()
         {
             var token = new CancellationToken();
-            var logger = GetRequiredService<DbLogger>();
+            var logger = GetRequiredService<Imato.DbLogger.DbLogger>();
             await logger.DeleteAsync();
 
             Task.Run(() => worker.StartAsync(token));
-            await Task.Delay(10_000);
+            await Task.Delay(15_000);
 
             Assert.IsTrue(worker.Started, "Started");
             Assert.IsTrue(worker.Status.Active, "Active");

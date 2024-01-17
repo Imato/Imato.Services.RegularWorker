@@ -23,6 +23,10 @@ begin
 		from dbo.Workers 
 		where name = @name 
 			and date >= dateadd(millisecond, 60000, getdate())
+			and @host != hosts
+			and active = 1;
+
+	set @hosts = @hosts + 1;
 
 	update dbo.Workers 
 		set date = getdate(), 
@@ -37,7 +41,7 @@ begin
 		insert into dbo.Workers 
 			(name, host, appName, date, settings, active, hosts) 
 		values 
-			(@name, @host, @appName, getdate(), @settings, @active, @hosts + 1); 
+			(@name, @host, @appName, getdate(), @settings, @active, @hosts); 
 			
 	select top 1 * 
 		from dbo.Workers 

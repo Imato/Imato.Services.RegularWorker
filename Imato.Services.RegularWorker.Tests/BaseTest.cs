@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
+using Imato.DbLogger;
 
 namespace Imato.Services.RegularWorker.Tests
 {
@@ -22,13 +23,15 @@ namespace Imato.Services.RegularWorker.Tests
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IConfiguration>(config);
-                services.AddSingleton<DbLogger>();
             });
             builder.ConfigureLogging((_, logging) =>
             {
+                logging.ClearProviders();
                 logging.AddConsole();
                 logging.AddDebug();
-            });
+            })
+            .ConfigureDbLogger();
+
             builder.ConfigureWorkers(null);
             _app = builder.Build();
             _provider = _app.Services.CreateScope().ServiceProvider;

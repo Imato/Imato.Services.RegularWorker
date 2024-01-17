@@ -16,7 +16,11 @@ begin
 		into _hosts
 		from workers 
 		where name = _name 
-			and date >= now() - (60 * interval'1 second');
+			and date >= now() - (60 * interval'1 second')
+			and host != _host
+			and active = true;
+
+	_hosts := _hosts + 1;
 
 	update workers
 		set active = _active, 
@@ -31,7 +35,7 @@ begin
 		insert into workers 
 			(name, host, appName, date, settings, active, hosts)
 		values 
-			(_name, _host, _appName, current_timestamp, _settings, _active, _hosts + 1)
+			(_name, _host, _appName, current_timestamp, _settings, _active, _hosts)
 		returning id
 		into _id;		
 	end if;

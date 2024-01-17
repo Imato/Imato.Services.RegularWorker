@@ -1,8 +1,6 @@
 ﻿using Imato.Services.RegularWorker.Workers;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -42,31 +40,6 @@ namespace Imato.Services.RegularWorker
                     assembly = null;
                 }
             }
-        }
-
-        public static ILoggingBuilder AddDbLoggerConfig(
-            this ILoggingBuilder builder,
-            Action<DbLoggerOptions> configure)
-        {
-            builder.Services.AddSingleton<ILoggerProvider, DbLoggerProvider>();
-            builder.Services.Configure(configure);
-            SqlMapper.AddTypeMap(typeof(LogLevel), DbType.String);
-            return builder;
-        }
-
-        public static IHostBuilder ConfigureDbLogger(this IHostBuilder builder)
-        {
-            builder.ConfigureLogging((context, logging) =>
-                logging.AddDbLoggerConfig(options =>
-                {
-                    context.Configuration
-                        .GetSection("Logging")
-                        .GetSection("DbLogger")
-                        .GetSection("Options")
-                        .Bind(options);
-                })
-            );
-            return builder;
         }
 
         public static IHostBuilder AddDbContext(this IHostBuilder builder,
@@ -141,7 +114,6 @@ namespace Imato.Services.RegularWorker
             Constants.AppName = appName;
 
             builder.AddDbContext();
-            builder.ConfigureDbLogger();
             builder.AddWorkers();
             return builder;
         }
@@ -200,7 +172,7 @@ namespace Imato.Services.RegularWorker
             string[]? args = null)
         {
             var workerName = args
-                .Where(x => x.StartsWith("Worker="))
+                .Where(x => x.StartsWith("worker=", StringComparison.InvariantCultureIgnoreCase))
                 .FirstOrDefault()
                 ?.Split('=')[1];
             _watcher = new WorkersWatcher(app, workerName);
