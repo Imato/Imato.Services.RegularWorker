@@ -15,16 +15,16 @@ as
 begin 
 	set nocount on;
 
-	declare @hosts int = 0;
+	declare @hosts int = 0,
+		@activeHosts int = 0;
 
 	begin transaction; 
 
-	select @hosts = count(1)
+	select @hosts = count(1), @activeHosts = sum(iif(active = 1, 1, 0))
 		from dbo.Workers 
 		where name = @name 
 			and date >= dateadd(millisecond, 60000, getdate())
-			and @host != hosts
-			and active = 1;
+			and @host != host;
 
 	set @hosts = @hosts + 1;
 
@@ -43,7 +43,7 @@ begin
 		values 
 			(@name, @host, @appName, getdate(), @settings, @active, @hosts); 
 			
-	select top 1 * 
+	select top 1 *, @activeHosts as activeHosts
 		from dbo.Workers 
 		where (@id > 0 and id = @id) 
 			or (host = @host 

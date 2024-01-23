@@ -53,6 +53,7 @@ namespace Imato.Services.RegularWorker
             catch (Exception ex)
             {
                 LogError(ex);
+                await Task.Delay(Settings.StartInterval > 0 ? Settings.StartInterval : 5000);
             }
         }
 
@@ -89,7 +90,7 @@ namespace Imato.Services.RegularWorker
 
             result = settings.RunOn == RunOn.SecondaryServerFirst
                 && !isPrimaty
-                && (Status.Hosts == 1 || Status.Active);
+                && (Status.ActiveHosts == 0);
             if (result)
             {
                 Logger?.LogDebug("Worker is active on first secondary server");

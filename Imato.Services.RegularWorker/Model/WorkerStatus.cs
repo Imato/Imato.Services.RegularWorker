@@ -21,5 +21,6 @@ namespace Imato.Services.RegularWorker
         public bool Active { get; set; }
         public string Settings { get; set; } = "";
         public int Hosts { get; set; } = 1;
+        public int ActiveHosts { get; set; } = 1;
     }
 }

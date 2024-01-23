@@ -10,15 +10,15 @@ as
 $$
 declare 
 	_hosts int = 0;
+	_activeHosts int = 0;
 begin	
  
-	select count(1) 
-		into _hosts
+	select count(1), iif(active = true, 1, 0)
+		into _hosts, _activeHosts
 		from workers 
 		where name = _name 
 			and date >= now() - (60 * interval'1 second')
-			and host != _host
-			and active = true;
+			and host != _host;
 
 	_hosts := _hosts + 1;
 
@@ -41,7 +41,7 @@ begin
 	end if;
 		
  return query
- (select * 
+ (select *, _activeHosts as activeHosts
 		from workers 
 		where id = _id);
 	
