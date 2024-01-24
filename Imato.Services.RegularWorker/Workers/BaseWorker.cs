@@ -105,12 +105,6 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            if (Status.Hosts <= 1)
-            {
-                Logger?.LogDebug("Worker is active on single server");
-                return true;
-            }
-
             return false;
         }
 

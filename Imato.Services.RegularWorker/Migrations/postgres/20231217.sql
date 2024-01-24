@@ -21,6 +21,7 @@ begin
 			and host != _host;
 
 	_hosts := _hosts + 1;
+	_activeHosts := coalesce(_activeHosts, 0);
 
 	update workers
 		set active = _active, 

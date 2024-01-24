@@ -23,10 +23,11 @@ begin
 	select @hosts = count(1), @activeHosts = sum(iif(active = 1, 1, 0))
 		from dbo.Workers 
 		where name = @name 
-			and date >= dateadd(millisecond, 60000, getdate())
+			and date >= dateadd(millisecond, -60000, getdate())
 			and @host != host;
 
 	set @hosts = @hosts + 1;
+	set @activeHosts = isnull(@activeHosts, 0);
 
 	update dbo.Workers 
 		set date = getdate(), 
