@@ -89,11 +89,18 @@ namespace Imato.Services.RegularWorker
             }
 
             result = settings.RunOn == RunOn.SecondaryServerFirst
-                && !isPrimaty
                 && (Status.ActiveHosts == 0);
             if (result)
             {
-                Logger?.LogDebug("Worker is active on first secondary server");
+                if (!isPrimaty)
+                {
+                    Logger?.LogDebug("Worker is active on first secondary server");
+                }
+                else
+                {
+                    Logger?.LogDebug("Worker is active on first server");
+                }
+
                 return result;
             }
 
