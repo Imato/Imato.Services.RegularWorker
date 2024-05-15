@@ -18,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>2.17.4</Version>
+		<Version>2.18.0</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -43,6 +43,12 @@
 			<PackageCopyToOutput>true</PackageCopyToOutput>
 			<pack>true</pack>
 		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="Migrations\mssql\20240425-1.sql" />
+	  <None Remove="Migrations\mssql\20240425-2.sql" />
+	  <None Remove="Migrations\postgres\20240425.sql" />
 	</ItemGroup>
 
 	<ItemGroup>

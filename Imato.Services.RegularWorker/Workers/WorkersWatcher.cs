@@ -13,13 +13,13 @@ namespace Imato.Services.RegularWorker.Workers
         private readonly IHost _app;
         private readonly IDictionary<string, Task> _tasks = new Dictionary<string, Task>();
         private readonly IList<IWorker> _workers = new List<IWorker>();
-        private readonly string? _workerName;
+        private readonly string[]? _workersList;
 
-        public WorkersWatcher(IHost app, string? workerName = null)
+        public WorkersWatcher(IHost app, string[]? workersList = null)
             : base(app.Services.CreateScope().ServiceProvider)
         {
             _app = app;
-            _workerName = workerName;
+            _workersList = workersList;
         }
 
         public override async Task ExecuteAsync(CancellationToken token)
@@ -32,7 +32,7 @@ namespace Imato.Services.RegularWorker.Workers
         {
             if (_workers.Count == 0)
             {
-                foreach (var worker in _app.GetWorkers(_workerName))
+                foreach (var worker in _app.GetWorkers(_workersList))
                 {
                     _workers.Add(worker);
                 }

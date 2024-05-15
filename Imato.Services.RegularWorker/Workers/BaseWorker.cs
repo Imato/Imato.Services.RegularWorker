@@ -49,9 +49,11 @@ namespace Imato.Services.RegularWorker
             try
             {
                 await func();
+                Status.Error = string.Empty;
             }
             catch (Exception ex)
             {
+                Status.Error = ex.ToString();
                 LogError(ex);
                 await Task.Delay(Settings.StartInterval > 0 ? Settings.StartInterval : 5000);
             }
@@ -88,7 +90,7 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            result = settings.RunOn == RunOn.SecondaryServerFirst
+            result = (settings.RunOn == RunOn.SecondaryServerFirst || settings.RunOn == RunOn.Single)
                 && (Status.ActiveHosts == 0);
             if (result)
             {

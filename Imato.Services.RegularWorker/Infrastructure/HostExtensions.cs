@@ -161,21 +161,22 @@ namespace Imato.Services.RegularWorker
 
         public static IEnumerable<IWorker> GetWorkers(
             this IHost app,
-            string? workerName = null)
+            string[]? workersList = null)
         {
             return app.Services.GetServices<IWorker>()
                 .Where(x => x.GetType().Name != "WorkersWatcher"
-                    && (x.GetType().Name == workerName || workerName == null));
+                    && (workersList == null || workersList.Contains(x.GetType().Name)));
         }
 
         public static void StartWorkers(this IHost app,
             string[]? args = null)
         {
-            var workerName = args
+            var workersList = args
                 .Where(x => x.StartsWith("worker=", StringComparison.InvariantCultureIgnoreCase))
                 .FirstOrDefault()
-                ?.Split('=')[1];
-            _watcher = new WorkersWatcher(app, workerName);
+                ?.Split('=')[1]
+                ?.Split(";");
+            _watcher = new WorkersWatcher(app, workersList);
             Task.Factory
                 .StartNew(() => _watcher.StartAsync(_startToken.Token),
                     _startToken.Token);

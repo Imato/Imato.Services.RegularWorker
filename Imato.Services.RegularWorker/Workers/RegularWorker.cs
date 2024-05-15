@@ -25,8 +25,8 @@ namespace Imato.Services.RegularWorker
                         {
                             if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
                             {
-                                await ExecuteAsync(token);
                                 status.Executed = await Db.UpdateExecutedAsync(Status.Id);
+                                await ExecuteAsync(token);
                             }
                         }
                         else
