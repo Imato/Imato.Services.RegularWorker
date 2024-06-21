@@ -9,7 +9,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Dapper;
 
 namespace Imato.Services.RegularWorker
 {
@@ -42,6 +41,12 @@ namespace Imato.Services.RegularWorker
             }
         }
 
+        /// <summary>
+        /// Add your WorkersDbContext implementation
+        /// </summary>
+        /// <param name="builder"></param>
+        /// <param name="contextType"></param>
+        /// <returns></returns>
         public static IHostBuilder AddDbContext(this IHostBuilder builder,
             Type contextType)
         {
@@ -65,65 +70,36 @@ namespace Imato.Services.RegularWorker
             return builder;
         }
 
-        public static IHostBuilder AddDbContext(this IHostBuilder builder)
+        private static IHostBuilder AddService<T>(this IHostBuilder builder,
+            T service) where T : class
         {
-            var wt = typeof(WorkersDbContext);
-
-            foreach (var assembly in GetAssemblies())
+            builder.ConfigureServices(services =>
             {
-                try
-                {
-                    if (assembly != null)
-                    {
-                        var ct = assembly
-                            .GetTypes()
-                            .Where(x => x.IsClass
-                                && !x.IsInterface
-                                && !x.IsAbstract
-                                && (x == wt))
-                            .FirstOrDefault();
-                        if (ct != null)
-                        {
-                            builder.AddDbContext(ct);
-                        }
+                services.AddSingleton(service);
+            });
+            return builder;
+        }
 
-                        ct = assembly
-                            .GetTypes()
-                            .Where(x => x.IsClass
-                                && !x.IsInterface
-                                && !x.IsAbstract
-                                && (x.IsSubclassOf(wt)))
-                            .FirstOrDefault();
-                        if (ct != null)
-                        {
-                            builder.AddDbContext(ct);
-                        }
-                    }
-                }
-                catch { }
-            }
+        private static IHostBuilder AddService<T>(this IHostBuilder builder) where T : class
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<T>();
+            });
             return builder;
         }
 
         public static IHostBuilder ConfigureWorkers(
             this IHostBuilder builder,
-            string appName = "",
-            string arguments = "")
+            Action<WorkersConfiguration>? configFactory = null)
         {
-            Constants.AppArguments = arguments;
-            Constants.AppName = appName;
-
-            builder.AddDbContext();
+            var config = new WorkersConfiguration();
+            configFactory?.Invoke(config);
+            builder.AddService(config);
+            Constants.FullAppName = config.FullAppName;
+            builder.AddService<WorkersDbContext>();
             builder.AddWorkers();
             return builder;
-        }
-
-        public static IHostBuilder ConfigureWorkers(
-            this IHostBuilder builder,
-            string[]? args = null)
-        {
-            return ConfigureWorkers(builder,
-                arguments: string.Join(";", args ?? Array.Empty<string>()));
         }
 
         public static IHostBuilder AddWorkers(this IHostBuilder builder)
@@ -168,14 +144,8 @@ namespace Imato.Services.RegularWorker
                     && (workersList == null || workersList.Contains(x.GetType().Name)));
         }
 
-        public static void StartWorkers(this IHost app,
-            string[]? args = null)
+        public static void StartWorkers(this IHost app, string[] workersList = null)
         {
-            var workersList = args
-                .Where(x => x.StartsWith("worker=", StringComparison.InvariantCultureIgnoreCase))
-                .FirstOrDefault()
-                ?.Split('=')[1]
-                ?.Split(";");
             _watcher = new WorkersWatcher(app, workersList);
             Task.Factory
                 .StartNew(() => _watcher.StartAsync(_startToken.Token),
@@ -199,10 +169,15 @@ namespace Imato.Services.RegularWorker
             throw new TypeAccessException($"Unknown service {typeof(T).Name}");
         }
 
-        public static async Task StartAppAsync(this IHost app,
-            string[]? args = null)
+        public static async Task StartWorkersAsync(this IHost app)
         {
-            app.StartWorkers(args);
+            var workersList = Environment.GetCommandLineArgs()
+                .Where(x => x.StartsWith("worker=", StringComparison.InvariantCultureIgnoreCase))
+                .FirstOrDefault()
+                ?.Split('=')[1]
+                ?.Split(";");
+
+            app.StartWorkers(workersList);
             var workers = app.GetWorkers();
             await app.RunAsync()
                 .ContinueWith(async (_) =>

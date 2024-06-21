@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using Imato.Dapper.DbContext;
+using Imato.Logger.Extensions;
 
 namespace Imato.Services.RegularWorker
 {
@@ -39,7 +40,7 @@ namespace Imato.Services.RegularWorker
         {
             try
             {
-                Logger?.LogError(ex.ToString());
+                Logger?.LogError(() => ex.ToString());
             }
             catch { }
         }
@@ -62,8 +63,8 @@ namespace Imato.Services.RegularWorker
         protected bool CanStart()
         {
             var settings = Settings;
-            Logger?.LogDebug($"Settings: {StringExtensions.Serialize(settings)}");
-            Logger?.LogDebug($"Status: {StringExtensions.Serialize(Status)}");
+            Logger?.LogDebug(() => $"Settings: {StringExtensions.Serialize(settings)}");
+            Logger?.LogDebug(() => $"Status: {StringExtensions.Serialize(Status)}");
 
             var result = settings.Enabled;
             if (!result) { return result; }
@@ -71,14 +72,14 @@ namespace Imato.Services.RegularWorker
             result = Db.IsDbActive();
             if (!result)
             {
-                Logger?.LogWarning("Connection to DB is not active");
+                Logger?.LogWarning(() => "Connection to DB is not active");
                 return result;
             }
 
             result = settings.RunOn == RunOn.EveryWhere;
             if (result)
             {
-                Logger?.LogDebug("Worker is active on each server");
+                Logger?.LogDebug(() => "Worker is active on each server");
                 return result;
             }
 
@@ -86,7 +87,7 @@ namespace Imato.Services.RegularWorker
             result = settings.RunOn == RunOn.PrimaryServer && isPrimaty;
             if (result)
             {
-                Logger?.LogDebug("Worker is active on primary server");
+                Logger?.LogDebug(() => "Worker is active on primary server");
                 return result;
             }
 
@@ -96,11 +97,11 @@ namespace Imato.Services.RegularWorker
             {
                 if (!isPrimaty)
                 {
-                    Logger?.LogDebug("Worker is active on first secondary server");
+                    Logger?.LogDebug(() => "Worker is active on first secondary server");
                 }
                 else
                 {
-                    Logger?.LogDebug("Worker is active on first server");
+                    Logger?.LogDebug(() => "Worker is active on first server");
                 }
 
                 return result;
@@ -110,7 +111,7 @@ namespace Imato.Services.RegularWorker
                 && !isPrimaty;
             if (result)
             {
-                Logger?.LogDebug("Worker is active on secondary server");
+                Logger?.LogDebug(() => "Worker is active on secondary server");
                 return result;
             }
 
@@ -135,23 +136,23 @@ namespace Imato.Services.RegularWorker
                     Status.Active = active;
                     if (Status.Active)
                     {
-                        Logger?.LogInformation("Activate worker");
+                        Logger?.LogInformation(() => "Activate worker");
                     }
                     else
                     {
-                        Logger?.LogInformation("Deactivate worker");
+                        Logger?.LogInformation(() => "Deactivate worker");
                     }
                 }
                 if (!active)
                 {
-                    Logger?.LogDebug("Worker is not active");
+                    Logger?.LogDebug(() => "Worker is not active");
                 }
 
                 UpdateStatus();
             }
             catch (Exception ex)
             {
-                Logger?.LogError(ex, "Set worker status");
+                Logger?.LogError(ex, () => "Set worker status");
             }
 
             _semaphore.Release();
@@ -173,7 +174,7 @@ namespace Imato.Services.RegularWorker
             if (!Started)
             {
                 Started = true;
-                Logger?.LogInformation("Initialize worker");
+                Logger?.LogInformation(() => "Initialize worker");
             }
             _semaphore.Release();
 
@@ -184,7 +185,7 @@ namespace Imato.Services.RegularWorker
         {
             if (!Settings.Enabled)
             {
-                Logger?.LogInformation("Worker is disabled");
+                Logger?.LogInformation(() => "Worker is disabled");
                 return;
             }
 
@@ -205,7 +206,7 @@ namespace Imato.Services.RegularWorker
             {
                 Started = false;
                 Status.Active = false;
-                Logger?.LogInformation("Stop worker");
+                Logger?.LogInformation(() => "Stop worker");
                 Db.SetStatus(Status);
             }
             _semaphore.Release();
@@ -262,46 +263,8 @@ namespace Imato.Services.RegularWorker
 
         public virtual Task ExecuteAsync(CancellationToken token)
         {
-            Logger?.LogDebug("Execute worker");
+            Logger?.LogDebug(() => "Execute worker");
             return Task.CompletedTask;
-        }
-
-        protected async Task<T> LogDuration<T>(Func<Task<T>> task,
-            string taskName = "",
-            int maxDuration = 10_000)
-        {
-            var now = DateTime.UtcNow;
-            if (Logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                Logger?.LogInformation($"Start {taskName}");
-            }
-            var result = await task();
-
-            var time = (DateTime.UtcNow - now).TotalMilliseconds;
-            if (time > maxDuration)
-            {
-                Logger?.LogWarning($"{taskName} max duration {maxDuration} exceeded - {time}");
-            }
-
-            if (Logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                Logger?.LogInformation($"End {taskName}. Duration: {time}");
-            }
-
-            return result;
-        }
-
-        protected async Task LogDuration(Func<Task> task,
-            string taskName = "",
-            int maxDuration = 10_000)
-        {
-            await LogDuration(
-                async () =>
-                {
-                    await task();
-                    return Task.FromResult(true);
-                },
-                taskName, maxDuration);
         }
     }
 }

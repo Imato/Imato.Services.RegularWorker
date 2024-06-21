@@ -32,7 +32,7 @@ namespace Imato.Services.RegularWorker.Tests
             })
             .ConfigureDbLogger();
 
-            builder.ConfigureWorkers(null);
+            builder.ConfigureWorkers();
             _app = builder.Build();
             _provider = _app.Services.CreateScope().ServiceProvider;
 
@@ -46,7 +46,7 @@ namespace Imato.Services.RegularWorker.Tests
 
         public T GetWorker<T>() where T : class
         {
-            return _app.GetWorkers(typeof(T).Name).First() as T
+            return _app.GetWorkers([typeof(T).Name]).First() as T
                 ?? throw new ApplicationException($"Worker {typeof(T).Name} not registered");
         }
 

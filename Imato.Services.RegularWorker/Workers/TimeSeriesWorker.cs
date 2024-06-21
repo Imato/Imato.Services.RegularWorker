@@ -2,10 +2,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Imato.Logger.Extensions;
 
 namespace Imato.Services.RegularWorker
 {
-    public abstract class TimeSeriesWorker : BaseWorker
+    public abstract class TimeSeriesWorker : RegularWorker
     {
         protected TimeSeriesWorker(IServiceProvider provider) : base(provider)
         {
@@ -38,6 +39,13 @@ namespace Imato.Services.RegularWorker
 
         public override async Task StartAsync(CancellationToken token)
         {
+            if (Settings.ExecutionTimes == null
+                || Settings.ExecutionTimes.Length == 0)
+            {
+                await base.StartAsync(token);
+                return;
+            }
+
             if (Start())
             {
                 while (!token.IsCancellationRequested)
@@ -63,7 +71,7 @@ namespace Imato.Services.RegularWorker
                         }
                         else
                         {
-                            Logger.LogDebug("Wait activation");
+                            Logger?.LogDebug(() => "Wait activation");
                         }
 
                         await Task.Delay(StatusTimeout);

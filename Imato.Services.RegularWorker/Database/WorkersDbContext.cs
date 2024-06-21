@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Dapper;
+﻿using Dapper;
 using System;
 using System.Threading.Tasks;
 using System.Data;
@@ -7,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Imato.Dapper.DbContext;
 using System.Linq;
 using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 
 namespace Imato.Services.RegularWorker
 {
@@ -15,15 +15,10 @@ namespace Imato.Services.RegularWorker
         private bool _workerTableExists;
         protected string? ConfigurationTable { get; set; }
 
-        public WorkersDbContext(IConfiguration configuration,
-            ILogger<WorkersDbContext> logger)
-            : base(configuration, logger)
-        {
-        }
-
-        public WorkersDbContext(string connectionString,
-            ILogger<WorkersDbContext> logger)
-            : base(connectionString, logger)
+        public WorkersDbContext(WorkersConfiguration? workersConfiguration = null,
+            IConfiguration? configuration = null,
+            ILogger<WorkersDbContext>? logger = null)
+            : base(configuration, logger, workersConfiguration?.ConnectionString)
         {
         }
 
@@ -66,7 +61,7 @@ namespace Imato.Services.RegularWorker
             await ExecuteAsync("UpdateConfigAsync", config);
         }
 
-        private void CreateWorkersTable(IDbConnection connection)
+        public void CreateWorkersTable(IDbConnection connection)
         {
             if (_workerTableExists) return;
             ExecuteAsync("CreateWorkersTable").Wait();
@@ -76,7 +71,6 @@ namespace Imato.Services.RegularWorker
         public WorkerStatus? GetStatus(WorkerStatus status)
         {
             using var connection = Connection();
-            CreateWorkersTable(connection);
             return QueryAsync<WorkerStatus>("GetStatus", status)
                 .Result
                 .FirstOrDefault();
@@ -103,13 +97,12 @@ namespace Imato.Services.RegularWorker
         public WorkerStatus SetStatus(WorkerStatus status)
         {
             using var connection = Connection();
-            CreateWorkersTable(connection);
             return QueryFirstAsync<WorkerStatus>("SetStatus", status).Result;
         }
 
         public async Task<IEnumerable<DbLogEvent>> GetLastLogsAsync(int count = 100)
         {
-            return await QueryAsync<DbLogEvent>("GetLastLogs", new object[] { count, Configuration.GetSection("Logging:DbLogger:Options:Table").Value ?? "" });
+            return await QueryAsync<DbLogEvent>("GetLastLogs", new object[] { count, Configuration?.GetSection("Logging:DbLogger:Options:Table")?.Value ?? "" });
         }
 
         public async Task<DateTime> UpdateExecutedAsync(int workerId)

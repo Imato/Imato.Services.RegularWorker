@@ -2,6 +2,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Imato.Logger.Extensions;
 
 namespace Imato.Services.RegularWorker
 {
@@ -31,7 +32,7 @@ namespace Imato.Services.RegularWorker
                         }
                         else
                         {
-                            Logger?.LogDebug("Wait activation");
+                            Logger?.LogDebug(() => "Wait activation");
                         }
 
                         var waitTime = StatusTimeout;

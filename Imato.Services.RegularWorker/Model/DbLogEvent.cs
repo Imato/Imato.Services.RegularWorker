@@ -10,6 +10,6 @@ namespace Imato.Services.RegularWorker
         public string Source { get; set; } = "";
         public string Message { get; set; } = "";
         public string Server => Environment.MachineName;
-        public string App => Constants.AppName;
+        public string App => Constants.FullAppName;
     }
 }

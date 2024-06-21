@@ -15,8 +15,7 @@ namespace Imato.Services.RegularWorker.Tests
         public TimeSeriesWorkerTests() : base()
         {
             worker = GetWorker<TestWorker>();
-            worker.Status.Settings = JsonSerializer.Serialize(settings,
-                Constants.JsonOptions);
+            worker.Status.Settings = JsonSerializer.Serialize(settings);
         }
 
         [Test]
@@ -58,8 +57,8 @@ namespace Imato.Services.RegularWorker.Tests
             Task.Run(() => worker.StartAsync(token));
             await Task.Delay(1000);
 
-            Assert.IsTrue(worker.Started, "Started");
-            Assert.IsTrue(worker.Status.Active, "Active");
+            Assert.That(worker.Started, Is.True, "Started");
+            Assert.That(worker.Status.Active, Is.True, "Active");
             Assert.That(worker.Status.Hosts, Is.EqualTo(1), "Hosts");
             Assert.That(worker.Status.Executed, Is.GreaterThan(DateTime.UtcNow.AddSeconds(-3000)), "Executed");
 
@@ -70,9 +69,9 @@ namespace Imato.Services.RegularWorker.Tests
                 .Where(x => x.Source.Contains("TestWorker"))
                 .ToArray();
 
-            Assert.IsTrue(logs.Length > 1, "Logs");
-            Assert.IsTrue(logs.Any(x => x.Message == "Worker is active on each server"), "Logs");
-            Assert.IsTrue(logs.Any(x => x.Message == "Execute worker"), "Logs");
+            Assert.That(logs.Length, Is.GreaterThan(1), "Logs");
+            Assert.That(logs.Any(x => x.Message == "Worker is active on each server"), Is.True, "Logs");
+            Assert.That(logs.Any(x => x.Message == "Execute worker"), Is.True, "Logs");
         }
 
         [Test]
@@ -87,7 +86,7 @@ namespace Imato.Services.RegularWorker.Tests
             Task.Run(() => worker.StartAsync(token));
             await Task.Delay(1000);
 
-            Assert.IsTrue(worker.Started, "Started");
+            Assert.That(worker.Started, Is.True, "Started");
             Assert.That(worker.Status.Executed, Is.LessThan(DateTime.Now.AddSeconds(-5000)), "Executed");
 
             await worker.StopAsync(token);

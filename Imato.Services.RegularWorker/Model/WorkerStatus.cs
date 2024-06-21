@@ -15,9 +15,9 @@ namespace Imato.Services.RegularWorker
         public int Id { get; set; }
         public string Name { get; set; } = "";
         public string Host => Environment.MachineName;
-        public string AppName => Constants.AppName;
-        public DateTime Date { get; set; }
-        public DateTime Executed { get; set; }
+        public string AppName => Constants.FullAppName;
+        public DateTime Date { get; set; } = DateTime.UnixEpoch;
+        public DateTime Executed { get; set; } = DateTime.UnixEpoch;
         public bool Active { get; set; }
         public string Settings { get; set; } = "";
         public int Hosts { get; set; }

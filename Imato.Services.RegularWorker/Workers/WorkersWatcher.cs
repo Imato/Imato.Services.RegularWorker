@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Imato.Logger.Extensions;
 
 namespace Imato.Services.RegularWorker.Workers
 {
@@ -25,7 +26,7 @@ namespace Imato.Services.RegularWorker.Workers
         public override async Task ExecuteAsync(CancellationToken token)
         {
             await base.ExecuteAsync(token);
-            await LogDuration(() => WorkAsync(token), "WorkAsync");
+            await Logger.LogDuration(() => WorkAsync(token), "WorkAsync", 10_000);
         }
 
         public async Task WorkAsync(CancellationToken token)
@@ -43,7 +44,7 @@ namespace Imato.Services.RegularWorker.Workers
                 if (!worker.Started
                     && !_tasks.ContainsKey(worker.Name))
                 {
-                    Logger.LogDebug($"First start {worker.Name}");
+                    Logger.LogDebug(() => $"First start {worker.Name}");
                     StartWorker(worker, token);
                     await Task.Delay(456);
                     continue;
@@ -54,7 +55,7 @@ namespace Imato.Services.RegularWorker.Workers
                     var existsTask = _tasks[worker.Name];
                     if (existsTask.Status == TaskStatus.Faulted)
                     {
-                        Logger.LogWarning($"Restart {worker.Name} after fail");
+                        Logger.LogWarning(() => $"Restart {worker.Name} after fail");
                         await worker.StopAsync(token);
                         existsTask.Dispose();
                         _tasks.Remove(worker.Name);
@@ -70,7 +71,7 @@ namespace Imato.Services.RegularWorker.Workers
         {
             if (!_tasks.ContainsKey(worker.Name))
             {
-                Logger.LogError($"Worker {worker.Name} is not running!");
+                Logger.LogError(() => $"Worker {worker.Name} is not running!");
             }
 
             if (worker.Status.Active)
@@ -78,7 +79,7 @@ namespace Imato.Services.RegularWorker.Workers
                 var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
                 if (duration > worker.Settings.StartInterval + StatusTimeout)
                 {
-                    Logger.LogWarning($"Long running worker {worker.Name} {duration / 1000:N0} seconds");
+                    Logger.LogWarning(() => $"Long running worker {worker.Name} {(duration / 1000):N0} seconds");
                 }
             }
         }
