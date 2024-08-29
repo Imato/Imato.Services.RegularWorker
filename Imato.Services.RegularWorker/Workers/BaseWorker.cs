@@ -67,7 +67,11 @@ namespace Imato.Services.RegularWorker
             Logger?.LogDebug(() => $"Status: {StringExtensions.Serialize(Status)}");
 
             var result = settings.Enabled;
-            if (!result) { return result; }
+            if (!result)
+            {
+                Logger?.LogDebug(() => "Worker is disabled");
+                return result;
+            }
 
             result = Db.IsDbActive();
             if (!result)

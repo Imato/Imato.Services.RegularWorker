@@ -58,7 +58,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual async Task UpdateConfigAsync(ConfigValue config)
         {
-            await ExecuteAsync("UpdateConfigAsync", config);
+            await ExecuteAsync(string.Format(Command("UpdateConfigAsync").Text, GetConfigTable()), config);
         }
 
         public void CreateWorkersTable(IDbConnection connection)
