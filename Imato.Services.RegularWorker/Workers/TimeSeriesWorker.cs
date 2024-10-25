@@ -52,7 +52,7 @@ namespace Imato.Services.RegularWorker
                 {
                     await TryAsync(async () =>
                     {
-                        var status = GetStatus();
+                        var status = await GetStatusAsync();
 
                         if (Settings.ExecutionTimes == null
                             || Settings.ExecutionTimes.Length == 0)
@@ -63,10 +63,10 @@ namespace Imato.Services.RegularWorker
 
                         if (status.Active)
                         {
-                            if (IsMyTime(Settings.ExecutionTimes, DateTime.Now, status.Executed))
+                            if (IsMyTime(Settings.ExecutionTimes!, DateTime.Now, status.Executed))
                             {
+                                status.Executed = DateTime.Now;
                                 await ExecuteAsync(token);
-                                status.Executed = await Db.UpdateExecutedAsync(Status.Id);
                             }
                         }
                         else
@@ -74,7 +74,7 @@ namespace Imato.Services.RegularWorker
                             Logger?.LogDebug(() => "Wait activation");
                         }
 
-                        await Task.Delay(StatusTimeout);
+                        await Task.Delay(StatusTimeout / 2);
                     });
                 }
             }

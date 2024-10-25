@@ -20,13 +20,14 @@ namespace Imato.Services.RegularWorker
                 {
                     await TryAsync(async () =>
                     {
-                        var status = GetStatus();
+                        var status = await GetStatusAsync();
 
+                        // Execute
                         if (status.Active)
                         {
                             if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
                             {
-                                status.Executed = await Db.UpdateExecutedAsync(Status.Id);
+                                Status.Executed = DateTime.Now;
                                 await ExecuteAsync(token);
                             }
                         }
@@ -35,21 +36,21 @@ namespace Imato.Services.RegularWorker
                             Logger?.LogDebug(() => "Wait activation");
                         }
 
-                        var waitTime = StatusTimeout;
-                        var t = (Status.Executed - Status.Date).TotalMilliseconds;
+                        // Wait
                         if (status.Active)
                         {
-                            waitTime = t < int.MaxValue
-                                ? Settings.StartInterval - (int)t
+                            var duration = (DateTime.Now - Status.Executed).TotalMilliseconds;
+                            var waitTime = duration < int.MaxValue
+                                ? Settings.StartInterval - (int)duration
                                 : 0;
-                            waitTime = waitTime < StatusTimeout
-                                ? waitTime
-                                : StatusTimeout;
+                            if (waitTime > 0)
+                            {
+                                await Task.Delay(waitTime);
+                            }
                         }
-
-                        if (waitTime > 0)
+                        else
                         {
-                            await Task.Delay(waitTime);
+                            await Task.Delay(StatusTimeout / 2);
                         }
                     });
                 }

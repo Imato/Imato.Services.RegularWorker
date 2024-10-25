@@ -41,26 +41,27 @@ namespace Imato.Services.RegularWorker.Workers
 
             foreach (var worker in _workers)
             {
-                if (!worker.Started
-                    && !_tasks.ContainsKey(worker.Name))
+                _tasks.TryGetValue(worker.Name, out var existsTask);
+                if (!worker.Started && existsTask == null)
                 {
                     Logger.LogDebug(() => $"First start {worker.Name}");
                     StartWorker(worker, token);
-                    await Task.Delay(456);
+                    await Task.Delay(123);
                     continue;
                 }
 
-                if (_tasks.ContainsKey(worker.Name))
+                if (existsTask?.Status == TaskStatus.Faulted)
                 {
-                    var existsTask = _tasks[worker.Name];
-                    if (existsTask.Status == TaskStatus.Faulted)
-                    {
-                        Logger.LogWarning(() => $"Restart {worker.Name} after fail");
-                        await worker.StopAsync(token);
-                        existsTask.Dispose();
-                        _tasks.Remove(worker.Name);
-                        StartWorker(worker, token);
-                    }
+                    Logger.LogWarning(() => $"Restart {worker.Name} after fail");
+                    await worker.StopAsync(token);
+                    existsTask.Dispose();
+                    _tasks.Remove(worker.Name);
+                    StartWorker(worker, token);
+                }
+
+                if (worker.Status.Date.AddMilliseconds(StatusTimeout / 2) < DateTime.Now)
+                {
+                    await worker.UpdateStatusAsync();
                 }
 
                 Monitor(worker);

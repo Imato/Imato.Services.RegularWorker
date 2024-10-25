@@ -1,1 +1,1 @@
-exec dbo.SetWorker @id, @name, @appName, @active, @host, @settings, @error;
+exec dbo.SetWorker @id, @name, @appName, @active, @host, @settings, @executed, @error;

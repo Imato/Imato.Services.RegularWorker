@@ -19,7 +19,7 @@ namespace Imato.Services.RegularWorker
         protected readonly WorkersDbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
-
+        private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
         public string Name { get; }
 
         public bool Started { get; private set; }
@@ -94,23 +94,25 @@ namespace Imato.Services.RegularWorker
                 return result;
             }
 
-            result = (settings.RunOn == RunOn.SecondaryServerFirst || settings.RunOn == RunOn.Single)
-                && (Status.ActiveHosts == 0);
+            if (Status.ActiveHosts == 0 && isPrimaty && settings.RunOn != RunOn.SecondaryServer)
+            {
+                result = Status.Hosts == 1;
+                if (result)
+                {
+                    Logger?.LogDebug(() => "Worker is active on first master server");
+                    return result;
+                }
+            }
+
+            result = settings.RunOn == RunOn.Single && Status.ActiveHosts == 0;
             if (result)
             {
-                if (!isPrimaty)
-                {
-                    Logger?.LogDebug(() => "Worker is active on first secondary server");
-                }
-                else
-                {
-                    Logger?.LogDebug(() => "Worker is active on first server");
-                }
-
+                Logger?.LogDebug(() => "Worker is active on single server");
                 return result;
             }
 
-            result = settings.RunOn == RunOn.SecondaryServer
+            result = (settings.RunOn == RunOn.SecondaryServer || settings.RunOn == RunOn.SecondaryServerFirst)
+                && Status.ActiveHosts == 0
                 && !isPrimaty;
             if (result)
             {
@@ -121,16 +123,14 @@ namespace Imato.Services.RegularWorker
             return false;
         }
 
-        protected WorkerStatus GetStatus()
+        protected async Task<WorkerStatus> GetStatusAsync()
         {
-            _semaphore.Wait();
-
             try
             {
                 // First execute
                 if (Status.Date.Year < 2000)
                 {
-                    UpdateStatus();
+                    await UpdateStatusAsync();
                 }
 
                 var active = CanStart();
@@ -151,35 +151,42 @@ namespace Imato.Services.RegularWorker
                     Logger?.LogDebug(() => "Worker is not active");
                 }
 
-                UpdateStatus();
+                await UpdateStatusAsync();
             }
             catch (Exception ex)
             {
                 Logger?.LogError(ex, () => "Set worker status");
             }
 
-            _semaphore.Release();
-
             return Status;
         }
 
-        protected void UpdateStatus()
+        public async Task UpdateStatusAsync()
         {
-            Status.Settings = !string.IsNullOrEmpty(Status.Settings)
+            semaphore.Wait();
+            try
+            {
+                Status.Settings = !string.IsNullOrEmpty(Status.Settings)
                     ? Status.Settings
                     : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
-            Status = Db.SetStatus(Status);
+                Status.Date = DateTime.Now;
+                Status = await Db.SetStatusAsync(Status);
+            }
+            catch (Exception ex)
+            {
+                Status.Error = ex.ToString();
+                LogError(ex);
+            }
+            semaphore.Release();
         }
 
         protected bool Start()
         {
-            _semaphore.Wait();
             if (!Started)
             {
                 Started = true;
                 Logger?.LogInformation(() => "Initialize worker");
             }
-            _semaphore.Release();
 
             return Started;
         }
@@ -194,25 +201,24 @@ namespace Imato.Services.RegularWorker
 
             await TryAsync(async () =>
             {
-                if (Start() && GetStatus().Active)
+                if (Start() && (await GetStatusAsync()).Active)
                 {
+                    Status.Executed = DateTime.Now;
                     await ExecuteAsync(token);
-                    Status.Executed = await Db.UpdateExecutedAsync(Status.Id);
                 }
             });
         }
 
         public virtual async Task StopAsync(CancellationToken cancellationToken)
         {
-            await _semaphore.WaitAsync();
             if (Started)
             {
                 Started = false;
                 Status.Active = false;
+                Status.Date = DateTime.Now;
                 Logger?.LogInformation(() => "Stop worker");
-                Db.SetStatus(Status);
+                await Db.SetStatusAsync(Status);
             }
-            _semaphore.Release();
         }
 
         protected int StatusTimeout
@@ -221,7 +227,7 @@ namespace Imato.Services.RegularWorker
             {
                 var value = Configuration
                     .GetValue<string>("Workers:StatusTimeout");
-                if (int.TryParse(value, out int result))
+                if (value != null && int.TryParse(value, out int result))
                 {
                     return result;
                 }

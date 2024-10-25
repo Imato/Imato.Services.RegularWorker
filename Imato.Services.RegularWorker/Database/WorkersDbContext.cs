@@ -94,21 +94,15 @@ namespace Imato.Services.RegularWorker
                 .Result;
         }
 
-        public WorkerStatus SetStatus(WorkerStatus status)
+        public async Task<WorkerStatus> SetStatusAsync(WorkerStatus status)
         {
             using var connection = Connection();
-            return QueryFirstAsync<WorkerStatus>("SetStatus", status).Result;
+            return await QueryFirstAsync<WorkerStatus>("SetStatus", status);
         }
 
         public async Task<IEnumerable<DbLogEvent>> GetLastLogsAsync(int count = 100)
         {
             return await QueryAsync<DbLogEvent>("GetLastLogs", new object[] { count, Configuration?.GetSection("Logging:DbLogger:Options:Table")?.Value ?? "" });
-        }
-
-        public async Task<DateTime> UpdateExecutedAsync(int workerId)
-        {
-            return await QueryFirstAsync<DateTime>("UpdateExecuted",
-                new { id = workerId });
         }
     }
 }
