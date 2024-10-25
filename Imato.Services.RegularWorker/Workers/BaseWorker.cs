@@ -19,7 +19,6 @@ namespace Imato.Services.RegularWorker
         protected readonly WorkersDbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
         public string Name { get; }
 
