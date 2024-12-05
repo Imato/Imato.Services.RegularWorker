@@ -41,35 +41,6 @@ namespace Imato.Services.RegularWorker
             }
         }
 
-        /// <summary>
-        /// Add your WorkersDbContext implementation
-        /// </summary>
-        /// <param name="builder"></param>
-        /// <param name="contextType"></param>
-        /// <returns></returns>
-        public static IHostBuilder AddDbContext(this IHostBuilder builder,
-            Type contextType)
-        {
-            var wt = typeof(WorkersDbContext);
-
-            if (contextType != null
-                && (contextType.IsSubclassOf(wt) || contextType == wt))
-            {
-                builder.ConfigureServices(services =>
-                {
-                    if (services.Any(x => x.ServiceType == wt))
-                    {
-                        services.Remove(new ServiceDescriptor(wt,
-                            ServiceLifetime.Singleton));
-                    }
-
-                    services.AddSingleton(wt, contextType);
-                });
-            }
-
-            return builder;
-        }
-
         private static IHostBuilder AddService<T>(this IHostBuilder builder,
             T service) where T : class
         {

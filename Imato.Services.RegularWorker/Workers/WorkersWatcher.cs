@@ -77,7 +77,7 @@ namespace Imato.Services.RegularWorker.Workers
 
             if (worker.Status.Active)
             {
-                var duration = (DateTime.Now - worker.Status.Date).TotalMilliseconds;
+                var duration = (DateTime.Now - worker.Status.Date.ToLocalTime()).TotalMilliseconds;
                 if (duration > worker.Settings.StartInterval + StatusTimeout)
                 {
                     Logger.LogWarning(() => $"Long running worker {worker.Name} {(duration / 1000):N0} seconds");

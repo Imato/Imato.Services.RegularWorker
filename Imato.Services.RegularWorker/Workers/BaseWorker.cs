@@ -35,15 +35,6 @@ namespace Imato.Services.RegularWorker
             Status = new WorkerStatus(Name);
         }
 
-        protected void LogError(Exception ex)
-        {
-            try
-            {
-                Logger?.LogError(() => ex.ToString());
-            }
-            catch { }
-        }
-
         protected async Task TryAsync(Func<Task> func)
         {
             try
@@ -54,7 +45,7 @@ namespace Imato.Services.RegularWorker
             catch (Exception ex)
             {
                 Status.Error = ex.ToString();
-                LogError(ex);
+                Logger?.LogError(ex, "TryAsync");
                 await Task.Delay(Settings.StartInterval > 0 ? Settings.StartInterval : 5000);
             }
         }
@@ -175,7 +166,7 @@ namespace Imato.Services.RegularWorker
             catch (Exception ex)
             {
                 Status.Error = ex.ToString();
-                LogError(ex);
+                Logger?.LogError(ex, "UpdateStatusAsync");
             }
             semaphore.Release();
         }

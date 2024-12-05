@@ -18,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>3.2.0</Version>
+		<Version>3.2.1</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -49,8 +49,10 @@
 	  <None Remove="Migrations\mssql\20240425-1.sql" />
 	  <None Remove="Migrations\mssql\20240425-2.sql" />
 	  <None Remove="Migrations\mssql\20240901.sql" />
+	  <None Remove="Migrations\mssql\20241114.sql" />
 	  <None Remove="Migrations\postgres\20240425.sql" />
 	  <None Remove="Migrations\postgres\20240901.sql" />
+	  <None Remove="Migrations\postgres\20241114.sql" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -58,8 +60,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Imato.Dapper.DbContext" Version="1.12.0" />
-		<PackageReference Include="Imato.Logger.Extensions" Version="1.2.1" />
+		<PackageReference Include="Imato.Dapper.DbContext" Version="1.12.1" />
+		<PackageReference Include="Imato.Logger.Extensions" Version="1.2.2" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
@@ -73,6 +75,14 @@
 
 	<ItemGroup>
 	  <Content Update="Migrations\mssql\20240901.sql">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	    <PackageCopyToOutput>true</PackageCopyToOutput>
+	    <pack>true</pack>
+	  </Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Update="Migrations\postgres\20241114.sql">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	    <PackageCopyToOutput>true</PackageCopyToOutput>
 	    <pack>true</pack>

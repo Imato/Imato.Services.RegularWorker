@@ -16,12 +16,12 @@ namespace Imato.Services.RegularWorker
         /// <summary>
         /// Connection string or its name from configuration file for store workers statuses
         /// </summary>
-        public string ConnectionString { get; set; } = "";
+        public string? ConnectionString { get; set; }
 
         /// <summary>
         /// App name with command line argiments
         /// </summary>
         public string FullAppName => AppName
-            + (Environment.GetCommandLineArgs()?.Length > 0 ? " " + string.Join(";", Environment.GetCommandLineArgs()) : "");
+            + (Environment.GetCommandLineArgs()?.Length > 1 ? " " + string.Join(";", Environment.GetCommandLineArgs()) : "");
     }
 }

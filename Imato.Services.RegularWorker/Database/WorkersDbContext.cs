@@ -15,10 +15,11 @@ namespace Imato.Services.RegularWorker
         private bool _workerTableExists;
         protected string? ConfigurationTable { get; set; }
 
-        public WorkersDbContext(WorkersConfiguration? workersConfiguration = null,
-            IConfiguration? configuration = null,
-            ILogger<WorkersDbContext>? logger = null)
-            : base(configuration, logger, workersConfiguration?.ConnectionString)
+        public WorkersDbContext(IConfiguration? configuration = null,
+            ILogger<WorkersDbContext>? logger = null,
+            WorkersConfiguration? workersConfiguration = null)
+            : base(configuration, logger,
+                  workersConfiguration?.ConnectionString ?? configuration?.GetValue<string>("Workers:ConnectionString"))
         {
         }
 
@@ -44,9 +45,7 @@ namespace Imato.Services.RegularWorker
                     string.Format(Command("GetConfigAsync").Text, GetConfigTable()),
                     new { name });
                 if (config != null) return config;
-                config = new ConfigValue { Name = name, Value = "" };
-                await UpdateConfigAsync(config);
-                return config;
+                return new ConfigValue { Name = name, Value = "" };
             }
         }
 
