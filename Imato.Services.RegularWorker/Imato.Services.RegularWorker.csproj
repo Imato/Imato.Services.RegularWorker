@@ -18,7 +18,7 @@
 		<PackageTags>services workers</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReleaseNotes>Ready to use</PackageReleaseNotes>
-		<Version>3.2.2</Version>
+		<Version>3.2.3</Version>
 		<AssemblyName>Imato.Services.RegularWorker</AssemblyName>
 		<PackageIcon>icon.png</PackageIcon>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>

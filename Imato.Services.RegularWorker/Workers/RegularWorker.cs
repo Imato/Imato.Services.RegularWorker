@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Imato.Logger.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker
 {
@@ -27,7 +27,7 @@ namespace Imato.Services.RegularWorker
                         {
                             if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
                             {
-                                Status.Executed = DateTime.Now;
+                                status.Executed = DateTime.Now;
                                 await ExecuteAsync(token);
                             }
                         }
@@ -39,7 +39,7 @@ namespace Imato.Services.RegularWorker
                         // Wait
                         if (status.Active)
                         {
-                            var duration = (DateTime.Now - Status.Executed).TotalMilliseconds;
+                            var duration = (DateTime.Now - status.Executed).TotalMilliseconds;
                             var waitTime = duration < int.MaxValue
                                 ? Settings.StartInterval - (int)duration
                                 : 0;

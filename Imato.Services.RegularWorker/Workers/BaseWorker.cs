@@ -1,15 +1,15 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Threading.Tasks;
-using System.Threading;
+﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Imato.Dapper.DbContext;
 using Imato.Logger.Extensions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker
 {
@@ -45,7 +45,7 @@ namespace Imato.Services.RegularWorker
             catch (Exception ex)
             {
                 Status.Error = ex.ToString();
-                Logger?.LogError(ex, "TryAsync");
+                Logger?.LogError(ex, $"{func.Target}.{func.Method.Name}");
                 await Task.Delay(Settings.StartInterval > 0 ? Settings.StartInterval : 5000);
             }
         }
@@ -192,9 +192,10 @@ namespace Imato.Services.RegularWorker
 
             await TryAsync(async () =>
             {
-                if (Start() && (await GetStatusAsync()).Active)
+                var status = await GetStatusAsync();
+                if (Start() && status.Active)
                 {
-                    Status.Executed = DateTime.Now;
+                    status.Executed = DateTime.Now;
                     await ExecuteAsync(token);
                 }
             });
