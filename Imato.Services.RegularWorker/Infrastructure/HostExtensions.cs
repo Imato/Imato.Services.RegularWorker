@@ -1,7 +1,4 @@
-﻿using Imato.Services.RegularWorker.Workers;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -9,6 +6,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Imato.Services.RegularWorker.Workers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Imato.Services.RegularWorker
 {
@@ -67,6 +67,7 @@ namespace Imato.Services.RegularWorker
             var config = new WorkersConfiguration();
             configFactory?.Invoke(config);
             builder.AddService(config);
+            Constants.App = config.App;
             Constants.FullAppName = config.FullAppName;
             builder.AddService<WorkersDbContext>();
             builder.AddWorkers();

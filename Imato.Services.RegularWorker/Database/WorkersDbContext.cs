@@ -1,16 +1,16 @@
-﻿using Dapper;
-using System;
-using System.Threading.Tasks;
-using System.Data;
-using Microsoft.Extensions.Logging;
-using Imato.Dapper.DbContext;
-using System.Linq;
+﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using Dapper;
+using Imato.Dapper.DbContext;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker
 {
-    public class WorkersDbContext : DbContext
+    public class WorkersDbContext : DbContext, IWorkersDbContext
     {
         private bool _workerTableExists;
         protected string? ConfigurationTable { get; set; }

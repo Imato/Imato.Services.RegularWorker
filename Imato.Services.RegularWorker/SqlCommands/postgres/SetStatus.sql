@@ -1,1 +1,1 @@
-select * from set_worker(@id, @name, @appName, @host, @active, @settings, @executed, @error, @date);
+﻿select * from set_worker(@id, @name, @app, @appFullName, @host, @date, @active, @settings, @executed, @error);

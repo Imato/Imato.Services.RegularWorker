@@ -11,7 +11,8 @@ namespace Imato.Services.RegularWorker
 
         public string Name { get; set; } = null!;
         public string Host { get; set; } = null!;
-        public string AppName { get; set; } = null!;
+        public string App { get; set; } = null!;
+        public string AppFullName { get; set; } = null!;
         public DateTime Date { get; set; }
         public DateTime Executed { get; set; }
         public bool Active { get; set; }

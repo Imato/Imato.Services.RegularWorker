@@ -1,7 +1,7 @@
-select * 
+﻿select * 
 	from workers 
 	where 
 		name = @name 
 		and host = @host 
-		and appName = @appName 
+		and app = @app
 	limit 1;

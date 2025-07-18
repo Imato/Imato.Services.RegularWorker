@@ -32,7 +32,10 @@ namespace Imato.Services.RegularWorker
             Db = GetService<WorkersDbContext>();
             Configuration = GetService<IConfiguration>();
             Name = GetType().Name;
-            Status = new WorkerStatus(Name);
+            Status = new WorkerStatus
+            {
+                Name = Name
+            };
         }
 
         protected async Task TryAsync(Func<Task> func)
