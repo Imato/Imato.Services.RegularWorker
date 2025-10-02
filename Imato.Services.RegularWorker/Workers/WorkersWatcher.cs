@@ -1,19 +1,20 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Imato.Logger.Extensions;
+using Imato.Services.RegularWorker.Model;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker.Workers
 {
     internal class WorkersWatcher : RegularWorker
     {
         private readonly IHost _app;
-        private readonly IDictionary<string, Task> _tasks = new Dictionary<string, Task>();
-        private readonly IList<IWorker> _workers = new List<IWorker>();
+        private readonly Dictionary<string, WorkerContainer> _workers = new();
         private readonly string[]? _workersList;
 
         public WorkersWatcher(IHost app, string[]? workersList = null)
@@ -29,68 +30,97 @@ namespace Imato.Services.RegularWorker.Workers
             await Logger.LogDuration(() => WorkAsync(token), "WorkAsync", 10_000);
         }
 
-        public async Task WorkAsync(CancellationToken token)
+        private async Task WorkAsync(CancellationToken token)
         {
             if (_workers.Count == 0)
             {
                 foreach (var worker in _app.GetWorkers(_workersList))
                 {
-                    _workers.Add(worker);
+                    Logger.LogDebug(() => $"First start {worker.Name}");
+                    await StartWorkerAsync(worker, token);
+                    await Task.Delay(123);
                 }
             }
 
-            foreach (var worker in _workers)
+            foreach (var w in _workers.Values.Select(x => x.Worker).ToArray())
             {
-                _tasks.TryGetValue(worker.Name, out var existsTask);
-                if (!worker.Started && existsTask == null)
-                {
-                    Logger.LogDebug(() => $"First start {worker.Name}");
-                    StartWorker(worker, token);
-                    await Task.Delay(123);
-                    continue;
-                }
-
-                if (existsTask?.Status == TaskStatus.Faulted)
-                {
-                    Logger.LogWarning(() => $"Restart {worker.Name} after fail");
-                    await worker.StopAsync(token);
-                    existsTask.Dispose();
-                    _tasks.Remove(worker.Name);
-                    StartWorker(worker, token);
-                }
-
-                if (worker.Status.Date.AddMilliseconds(StatusTimeout / 2) < DateTime.Now)
-                {
-                    await worker.UpdateStatusAsync();
-                }
-
-                Monitor(worker);
+                await MonitorAsync(w, token);
             }
         }
 
-        private void Monitor(IWorker worker)
+        private async Task MonitorAsync(IWorker worker, CancellationToken token)
         {
-            if (!_tasks.ContainsKey(worker.Name))
-            {
-                Logger.LogError(() => $"Worker {worker.Name} is not running!");
-            }
-
-            if (worker.Status.Active)
+            // Long running workers
+            if (worker.Status.Active
+                && worker.Status.Date.Year > 2000
+                && worker.Settings.MaxExecutionTime > 0)
             {
                 var duration = (DateTime.Now - worker.Status.Date.ToLocalTime()).TotalMilliseconds;
-                if (duration > worker.Settings.StartInterval + StatusTimeout)
+                var maxDuration = worker.Settings.MaxExecutionTime > worker.Settings.StartInterval
+                    ? worker.Settings.MaxExecutionTime
+                    : worker.Settings.StartInterval;
+                if (duration > maxDuration + 333)
                 {
                     Logger.LogWarning(() => $"Long running worker {worker.Name} {(duration / 1000):N0} seconds");
+                    Logger.LogWarning(() => $"Restart {worker.Name}");
+                    await StopWorkerAsync(worker, token);
+                    await StartWorkerAsync(worker, token);
                 }
+            }
+
+            // Restart after RestartInterval
+            if (worker.Status.Active
+                && worker.Status.Started.Year > 2000
+                && worker.Settings.RestartInterval > 0
+                && (DateTime.Now - worker.Status.Started).TotalMilliseconds > worker.Settings.RestartInterval)
+            {
+                Logger.LogWarning(() => $"Restart worker {worker.Name} after RestartInterval = {worker.Settings.RestartInterval} ms");
+                await StopWorkerAsync(worker, token);
+                await StartWorkerAsync(worker, token);
             }
         }
 
-        private void StartWorker(IWorker worker, CancellationToken token)
+        public override async Task StopAsync(CancellationToken cancellationToken)
         {
-            var task = Task
-                .Factory
-                .StartNew(() => worker.StartAsync(token), token);
-            _tasks.Add(worker.Name, task);
+            foreach (var wc in _workers.Values)
+            {
+                await wc.Worker.StopAsync(cancellationToken);
+            }
+            await base.StopAsync(cancellationToken);
+        }
+
+        private Task StartWorkerAsync(IWorker worker, CancellationToken token)
+        {
+            if (!_workers.TryGetValue(worker.Name, out var wc))
+            {
+                wc = new WorkerContainer
+                {
+                    Worker = worker,
+                    TokenSource = new CancellationTokenSource(),
+                    Task = Task.Factory.StartNew(() => worker.StartAsync(wc.TokenSource.Token), token)
+                };
+                _workers.TryAdd(worker.Name, wc);
+            }
+            return Task.CompletedTask;
+        }
+
+        private async Task StopWorkerAsync(IWorker worker, CancellationToken token)
+        {
+            if (_workers.Remove(worker.Name, out var wc))
+            {
+                await wc.Worker.StopAsync(token);
+                if (!wc.TokenSource.IsCancellationRequested)
+                {
+                    wc.TokenSource.Cancel();
+                }
+                await Task.Delay(300);
+                try
+                {
+                    (wc.Task.AsyncState as Thread)?.Abort();
+                    wc.Task?.Dispose();
+                }
+                catch { }
+            }
         }
     }
 }

@@ -14,46 +14,27 @@ namespace Imato.Services.RegularWorker
 
         public override async Task StartAsync(CancellationToken token)
         {
-            if (Start())
+            while (Start() && !token.IsCancellationRequested)
             {
-                while (!token.IsCancellationRequested)
+                await TryAsync(async () =>
                 {
-                    await TryAsync(async () =>
+                    var status = await GetStatusAsync();
+
+                    if (status.Active)
                     {
-                        var status = await GetStatusAsync();
+                        if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
+                        {
+                            status.Executed = DateTime.Now;
+                            await ExecuteAsync(token);
+                        }
+                    }
+                    else
+                    {
+                        Logger?.LogDebug(() => "Wait activation");
+                    }
 
-                        // Execute
-                        if (status.Active)
-                        {
-                            if (status.Executed.AddMilliseconds(Settings.StartInterval) <= DateTime.Now)
-                            {
-                                status.Executed = DateTime.Now;
-                                await ExecuteAsync(token);
-                            }
-                        }
-                        else
-                        {
-                            Logger?.LogDebug(() => "Wait activation");
-                        }
-
-                        // Wait
-                        if (status.Active)
-                        {
-                            var duration = (DateTime.Now - status.Executed).TotalMilliseconds;
-                            var waitTime = duration < int.MaxValue
-                                ? Settings.StartInterval - (int)duration
-                                : 0;
-                            if (waitTime > 0)
-                            {
-                                await Task.Delay(waitTime);
-                            }
-                        }
-                        else
-                        {
-                            await Task.Delay(StatusTimeout / 2);
-                        }
-                    });
-                }
+                    await Task.Delay(StatusTimeout / 2);
+                });
             }
         }
     }

@@ -57,7 +57,7 @@ namespace Imato.Services.RegularWorker
 
         public virtual async Task UpdateConfigAsync(ConfigValue config)
         {
-            await ExecuteAsync(string.Format(Command("UpdateConfigAsync").Text, GetConfigTable()), config);
+            await ExecuteAsync(string.Format(Command("UpdateConfig").Text, GetConfigTable()), config);
         }
 
         public void CreateWorkersTable(IDbConnection connection)
@@ -69,7 +69,6 @@ namespace Imato.Services.RegularWorker
 
         public WorkerStatus? GetStatus(WorkerStatus status)
         {
-            using var connection = Connection();
             return QueryAsync<WorkerStatus>("GetStatus", status)
                 .Result
                 .FirstOrDefault();
@@ -78,7 +77,6 @@ namespace Imato.Services.RegularWorker
         public int GetHostCount(string workerName,
             int statusTimeout)
         {
-            using var connection = Connection();
             return QueryFirstAsync<int>("GetHostCount", new { workerName, statusTimeout })
                 .Result;
         }
@@ -87,21 +85,19 @@ namespace Imato.Services.RegularWorker
             string host,
             int statusTimeout)
         {
-            using var connection = Connection();
             return QueryFirstAsync<int>("GetOtherHostCount",
                     new { workerName, host, statusTimeout })
                 .Result;
         }
 
-        public async Task<WorkerStatus> SetStatusAsync(WorkerStatus status)
+        public async Task<WorkerStatus> SaveStatusAsync(WorkerStatus status)
         {
-            using var connection = Connection();
             return await QueryFirstAsync<WorkerStatus>("SetStatus", status);
         }
 
         public async Task<IEnumerable<DbLogEvent>> GetLastLogsAsync(int count = 100)
         {
-            return await QueryAsync<DbLogEvent>("GetLastLogs", new object[] { count, Configuration?.GetSection("Logging:DbLogger:Options:Table")?.Value ?? "" });
+            return await QueryAsync<DbLogEvent>("GetLastLogs", [count, Configuration?.GetSection("Logging:DbLogger:Options:Table")?.Value ?? ""]);
         }
     }
 }

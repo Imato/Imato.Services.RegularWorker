@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Imato.Logger.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker
 {
@@ -42,41 +42,31 @@ namespace Imato.Services.RegularWorker
             if (Settings.ExecutionTimes == null
                 || Settings.ExecutionTimes.Length == 0)
             {
-                await base.StartAsync(token);
-                return;
+                throw new ApplicationException($"Empty {nameof(Settings.ExecutionTimes)}) in logger settings");
             }
 
-            if (Start())
+            while (Start() && !token.IsCancellationRequested)
             {
-                while (!token.IsCancellationRequested)
+                await TryAsync(async () =>
                 {
-                    await TryAsync(async () =>
+                    var status = await GetStatusAsync();
+
+                    if (status.Active)
                     {
-                        var status = await GetStatusAsync();
-
-                        if (Settings.ExecutionTimes == null
-                            || Settings.ExecutionTimes.Length == 0)
+                        var now = DateTime.Now;
+                        if (IsMyTime(Settings.ExecutionTimes!, now, status.Executed))
                         {
-                            Logger?.LogError($"Empty {nameof(Settings.ExecutionTimes)}) in logger settings");
-                            status.Active = false;
+                            status.Executed = now;
+                            await ExecuteAsync(token);
                         }
+                    }
+                    else
+                    {
+                        Logger?.LogDebug(() => "Wait activation");
+                    }
 
-                        if (status.Active)
-                        {
-                            if (IsMyTime(Settings.ExecutionTimes!, DateTime.Now, status.Executed))
-                            {
-                                status.Executed = DateTime.Now;
-                                await ExecuteAsync(token);
-                            }
-                        }
-                        else
-                        {
-                            Logger?.LogDebug(() => "Wait activation");
-                        }
-
-                        await Task.Delay(StatusTimeout / 2);
-                    });
-                }
+                    await Task.Delay(StatusTimeout / 2);
+                });
             }
         }
     }

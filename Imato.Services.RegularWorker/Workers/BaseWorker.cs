@@ -8,18 +8,16 @@ using Imato.Dapper.DbContext;
 using Imato.Logger.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Imato.Services.RegularWorker
 {
-    public abstract class BaseWorker : IHostedService, IWorker
+    public abstract class BaseWorker : IWorker
     {
         protected readonly ILogger Logger;
         protected readonly WorkersDbContext Db;
         protected readonly IConfiguration Configuration;
         private readonly IServiceProvider provider;
-        private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
         public string Name { get; }
 
         public bool Started { get; private set; }
@@ -53,7 +51,7 @@ namespace Imato.Services.RegularWorker
             }
         }
 
-        protected bool CanStart()
+        protected bool GetActive()
         {
             var settings = Settings;
             Logger?.LogDebug(() => $"Settings: {StringExtensions.Serialize(settings)}");
@@ -71,6 +69,16 @@ namespace Imato.Services.RegularWorker
             {
                 Logger?.LogWarning(() => "Connection to DB is not active");
                 return result;
+            }
+
+            if (!string.IsNullOrEmpty(settings.Server))
+            {
+                result = string.Equals(settings.Server, Status.Host, StringComparison.InvariantCultureIgnoreCase);
+                if (!result)
+                {
+                    Logger?.LogDebug(() => $"Worker can start on {settings.Server} only");
+                    return result;
+                }
             }
 
             result = settings.RunOn == RunOn.EveryWhere;
@@ -122,12 +130,14 @@ namespace Imato.Services.RegularWorker
             try
             {
                 // First execute
-                if (Status.Date.Year < 2000)
+                if (Status.Started.Year < 2000)
                 {
-                    await UpdateStatusAsync();
+                    Status.Started = DateTime.Now;
+                    Status.StatusTimeout = (new int[3] { Settings.StartInterval, Settings.MaxExecutionTime, StatusTimeout }).Max();
+                    await SaveStatusAsync();
                 }
 
-                var active = CanStart();
+                var active = GetActive();
                 if (Status.Active != active)
                 {
                     Status.Active = active;
@@ -145,7 +155,7 @@ namespace Imato.Services.RegularWorker
                     Logger?.LogDebug(() => "Worker is not active");
                 }
 
-                await UpdateStatusAsync();
+                await SaveStatusAsync();
             }
             catch (Exception ex)
             {
@@ -155,23 +165,21 @@ namespace Imato.Services.RegularWorker
             return Status;
         }
 
-        public async Task UpdateStatusAsync()
+        public async Task SaveStatusAsync()
         {
-            semaphore.Wait();
             try
             {
                 Status.Settings = !string.IsNullOrEmpty(Status.Settings)
                     ? Status.Settings
                     : JsonSerializer.Serialize(Settings, Constants.JsonOptions);
                 Status.Date = DateTime.Now;
-                Status = await Db.SetStatusAsync(Status);
+                Status = await Db.SaveStatusAsync(Status);
             }
             catch (Exception ex)
             {
                 Status.Error = ex.ToString();
-                Logger?.LogError(ex, "UpdateStatusAsync");
+                Logger?.LogError(ex, "SaveStatusAsync");
             }
-            semaphore.Release();
         }
 
         protected bool Start()
@@ -195,11 +203,14 @@ namespace Imato.Services.RegularWorker
 
             await TryAsync(async () =>
             {
-                var status = await GetStatusAsync();
-                if (Start() && status.Active)
+                if (Start())
                 {
-                    status.Executed = DateTime.Now;
-                    await ExecuteAsync(token);
+                    var status = await GetStatusAsync();
+                    if (status.Active)
+                    {
+                        status.Executed = DateTime.Now;
+                        await ExecuteAsync(token);
+                    }
                 }
             });
         }
@@ -210,25 +221,15 @@ namespace Imato.Services.RegularWorker
             {
                 Started = false;
                 Status.Active = false;
-                Status.Date = DateTime.Now;
                 Logger?.LogInformation(() => "Stop worker");
-                await Db.SetStatusAsync(Status);
+                Status.Date = DateTime.Now;
+                await Db.SaveStatusAsync(Status);
+                Status.Date = Constants.MIN_DATE;
+                Status.Started = Constants.MIN_DATE;
             }
         }
 
-        protected int StatusTimeout
-        {
-            get
-            {
-                var value = Configuration
-                    .GetValue<string>("Workers:StatusTimeout");
-                if (value != null && int.TryParse(value, out int result))
-                {
-                    return result;
-                }
-                return 60000;
-            }
-        }
+        protected int StatusTimeout => Configuration.GetValue<int>("Workers:StatusTimeout");
 
         public T? GetSettings<T>() where T : class
         {

@@ -21,7 +21,7 @@ namespace Imato.Services.RegularWorker
 
         WorkerStatus? GetStatus(WorkerStatus status);
 
-        Task<WorkerStatus> SetStatusAsync(WorkerStatus status);
+        Task<WorkerStatus> SaveStatusAsync(WorkerStatus status);
 
         Task UpdateConfigAsync(ConfigValue config);
     }
